@@ -17,4 +17,5 @@ function getClientApp(): FirebaseApp {
 }
 
 export const db = getFirestore(getClientApp())
+
 export const clientAuth = getAuth(getClientApp())

@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache"
 import { getAdminApp } from "@/lib/firebase-admin"
 import type { AllowedUser, Role } from "@/lib/types"
 
-export function validateListInput(title: string, market: string) {
+function validateListInput(title: string, market: string) {
   if (!title.trim()) throw new Error("El título es requerido")
   if (!market.trim()) throw new Error("El mercado es requerido")
   return { title: title.trim(), market: market.trim() }

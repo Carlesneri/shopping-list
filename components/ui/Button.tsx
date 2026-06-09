@@ -1,5 +1,5 @@
 import type { ButtonHTMLAttributes } from "react"
-import { cn } from "@/lib/utils"
+import { twMerge } from "tailwind-merge"
 
 type Variant = "primary" | "ghost" | "danger"
 
@@ -18,7 +18,7 @@ const variants: Record<Variant, string> = {
 
 export function Button({ variant = "primary", className, children, ...props }: ButtonProps) {
   return (
-    <button className={cn(variants[variant], className)} {...props}>
+    <button className={twMerge(variants[variant], className)} {...props}>
       {children}
     </button>
   )
