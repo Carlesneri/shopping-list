@@ -4,7 +4,7 @@ import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import { getFirestore, FieldValue } from "firebase-admin/firestore"
 import { revalidatePath } from "next/cache"
-import { getAdminApp } from "@/lib/firebase-admin"
+import { getAdminApp, getDB } from "@/lib/firebase-admin"
 import type { AllowedUser, Role } from "@/lib/types"
 
 function validateListInput(title: string, market: string) {
@@ -22,16 +22,16 @@ export async function createList(formData: FormData) {
     formData.get("market") as string,
   )
 
-  const db = getFirestore(getAdminApp())
+  const db = getDB()
+
   const docRef = db.collection("lists").doc()
+
   const email = session.user.email
 
   await docRef.set({
     title,
     market,
-    allowedUsers: [{ email, role: "owner" }],
-    memberEmails: [email],
-    products: [],
+    allowedUsers: [{ email, role: "owner" as Role }],
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
   })
@@ -87,11 +87,16 @@ export async function removeUserFromList(listId: string, email: string) {
     throw new Error("Sin permisos para eliminar usuarios")
   }
 
-  const target = (data.allowedUsers as AllowedUser[]).find((u) => u.email === email)
-  if (target?.role === "owner") throw new Error("No se puede eliminar al propietario")
+  const target = (data.allowedUsers as AllowedUser[]).find(
+    (u) => u.email === email,
+  )
+  if (target?.role === "owner")
+    throw new Error("No se puede eliminar al propietario")
 
   await listRef.update({
-    allowedUsers: (data.allowedUsers as AllowedUser[]).filter((u) => u.email !== email),
+    allowedUsers: (data.allowedUsers as AllowedUser[]).filter(
+      (u) => u.email !== email,
+    ),
     memberEmails: (data.memberEmails as string[]).filter((e) => e !== email),
     updatedAt: FieldValue.serverTimestamp(),
   })
@@ -113,7 +118,8 @@ export async function deleteList(listId: string) {
   const caller = (data.allowedUsers as AllowedUser[]).find(
     (u) => u.email === session.user!.email,
   )
-  if (caller?.role !== "owner") throw new Error("Solo el propietario puede eliminar la lista")
+  if (caller?.role !== "owner")
+    throw new Error("Solo el propietario puede eliminar la lista")
 
   await listRef.delete()
   redirect("/")
