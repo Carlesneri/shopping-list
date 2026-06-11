@@ -16,6 +16,6 @@ function getClientApp(): FirebaseApp {
   return initializeApp(firebaseConfig)
 }
 
-export const db = getFirestore(getClientApp())
+export const db = getFirestore(getClientApp(), "compale")
 
 export const clientAuth = getAuth(getClientApp())

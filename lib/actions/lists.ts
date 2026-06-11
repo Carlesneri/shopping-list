@@ -2,9 +2,9 @@
 
 import { auth } from "@/auth"
 import { redirect } from "next/navigation"
-import { getFirestore, FieldValue } from "firebase-admin/firestore"
+import { FieldValue } from "firebase-admin/firestore"
 import { revalidatePath } from "next/cache"
-import { getAdminApp, getDB } from "@/lib/firebase-admin"
+import { getDB } from "@/lib/firebase-admin"
 import type { AllowedUser, Role } from "@/lib/types"
 
 function validateListInput(title: string, market: string) {
@@ -32,6 +32,8 @@ export async function createList(formData: FormData) {
     title,
     market,
     allowedUsers: [{ email, role: "owner" as Role }],
+    memberEmails: [email],
+    products: [],
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
   })
@@ -43,7 +45,7 @@ export async function addUserToList(listId: string, email: string, role: Role) {
   const session = await auth()
   if (!session?.user?.email) throw new Error("No autenticado")
 
-  const db = getFirestore(getAdminApp())
+  const db = getDB()
   const listRef = db.collection("lists").doc(listId)
   const snap = await listRef.get()
 
@@ -73,7 +75,7 @@ export async function removeUserFromList(listId: string, email: string) {
   const session = await auth()
   if (!session?.user?.email) throw new Error("No autenticado")
 
-  const db = getFirestore(getAdminApp())
+  const db = getDB()
   const listRef = db.collection("lists").doc(listId)
   const snap = await listRef.get()
 
@@ -108,7 +110,7 @@ export async function deleteList(listId: string) {
   const session = await auth()
   if (!session?.user?.email) throw new Error("No autenticado")
 
-  const db = getFirestore(getAdminApp())
+  const db = getDB()
   const listRef = db.collection("lists").doc(listId)
   const snap = await listRef.get()
 

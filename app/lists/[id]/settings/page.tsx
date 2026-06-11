@@ -1,7 +1,6 @@
 import { auth } from "@/auth"
 import { redirect } from "next/navigation"
-import { getFirestore } from "firebase-admin/firestore"
-import { getAdminApp } from "@/lib/firebase-admin"
+import { getDB } from "@/lib/firebase-admin"
 import { UserList } from "@/components/lists/UserList"
 import { AddUserForm } from "@/components/lists/AddUserForm"
 import { deleteList } from "@/lib/actions/lists"
@@ -19,17 +18,26 @@ export default async function ListSettingsPage({ params }: Props) {
   const session = await auth()
   if (!session?.user?.email) redirect("/")
 
-  const db = getFirestore(getAdminApp())
-  const snap = await db.collection("lists").doc(id).get()
+  const snap = await getDB().collection("lists").doc(id).get()
   if (!snap.exists) redirect("/")
 
-  const data = snap.data()!
+  const data = snap.data()
+  if (!data) redirect("/")
   const userEntry = (data.allowedUsers as { email: string; role: string }[]).find(
-    (u) => u.email === session.user!.email,
+    (u) => u.email === session.user?.email,
   )
   if (!userEntry) redirect("/")
 
-  const list = { id: snap.id, ...data } as ShoppingList
+  const list: ShoppingList = {
+    id: snap.id,
+    title: data.title,
+    market: data.market,
+    allowedUsers: data.allowedUsers,
+    memberEmails: data.memberEmails,
+    products: data.products ?? [],
+    createdAt: { seconds: data.createdAt?.seconds ?? 0, nanoseconds: data.createdAt?.nanoseconds ?? 0 },
+    updatedAt: { seconds: data.updatedAt?.seconds ?? 0, nanoseconds: data.updatedAt?.nanoseconds ?? 0 },
+  }
   const canManage = userEntry.role === "owner" || userEntry.role === "admin"
   const isOwner = userEntry.role === "owner"
 
