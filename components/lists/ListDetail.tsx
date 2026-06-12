@@ -8,6 +8,7 @@ import { toast } from "sonner"
 import { db, clientAuth } from "@/lib/firebase-client"
 import type { ShoppingList } from "@/lib/types"
 import { FabButton } from "@/components/ui/FabButton"
+import { AddProductForm } from "@/components/lists/AddProductForm"
 import { IconSettings, IconPlus, IconArrowLeft, IconBasket } from "@tabler/icons-react"
 
 interface Props {
@@ -18,6 +19,7 @@ interface Props {
 
 export function ListDetail({ initialList, userEmail, listId }: Props) {
   const [list, setList] = useState<ShoppingList>(initialList)
+  const [isFormOpen, setIsFormOpen] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -69,16 +71,41 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
         )}
       </div>
 
-      <div className="flex flex-col items-center justify-center gap-2 py-20 text-center">
-        <div className="w-16 h-16 rounded-full bg-text/5 flex items-center justify-center mb-2">
-          <IconBasket size={32} className="text-text/25" />
+      {/* Animated form slot */}
+      <div
+        className="overflow-hidden transition-all duration-300 ease-in-out"
+        style={{ maxHeight: isFormOpen ? "400px" : "0px", opacity: isFormOpen ? 1 : 0 }}
+      >
+        <div className="mb-6">
+          <AddProductForm listId={listId} onClose={() => setIsFormOpen(false)} />
         </div>
-        <p className="font-semibold text-text/40">Aún no hay productos</p>
-        <p className="text-sm text-text/30">Pulsa + para añadir el primero</p>
       </div>
 
+      {/* Product list */}
+      {list.products.length > 0 ? (
+        <ul className="flex flex-col gap-2">
+          {list.products.map((item, index) => (
+            <li
+              key={`${item.productId}-${index}`}
+              className="flex items-center justify-between border-2 border-black rounded-md px-4 py-3"
+            >
+              <span className="font-semibold capitalize">{item.name}</span>
+              <span className="text-sm text-text/50 font-medium">×{item.quantity}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="flex flex-col items-center justify-center gap-2 py-20 text-center">
+          <div className="w-16 h-16 rounded-full bg-text/5 flex items-center justify-center mb-2">
+            <IconBasket size={32} className="text-text/25" />
+          </div>
+          <p className="font-semibold text-text/40">Aún no hay productos</p>
+          <p className="text-sm text-text/30">Pulsa + para añadir el primero</p>
+        </div>
+      )}
+
       <div className="fixed bottom-6 right-6">
-        <FabButton type="button" color="purple">
+        <FabButton type="button" color="purple" onClick={() => setIsFormOpen((v) => !v)}>
           <IconPlus size={28} />
         </FabButton>
       </div>
