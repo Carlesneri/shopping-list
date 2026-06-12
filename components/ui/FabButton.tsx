@@ -27,7 +27,7 @@ export function FabButton({ color = "green", size = "lg", className, ...props }:
   return (
     <button
       className={twMerge(
-        "rounded-full flex items-center justify-center text-white cursor-pointer transition-transform hover:translate-y-px active:translate-y-1 active:shadow-none",
+        "rounded-full flex items-center justify-center text-white cursor-pointer transition-transform hover:translate-y-px active:translate-y-1 active:shadow-none disabled:opacity-40 disabled:cursor-not-allowed disabled:translate-y-0 disabled:shadow-none",
         colorClasses[color],
         sizeClasses[size],
         className,

@@ -9,7 +9,7 @@ import { db, clientAuth } from "@/lib/firebase-client"
 import type { ShoppingList } from "@/lib/types"
 import { FabButton } from "@/components/ui/FabButton"
 import { AddProductForm } from "@/components/lists/AddProductForm"
-import { IconSettings, IconPlus, IconArrowLeft, IconBasket } from "@tabler/icons-react"
+import { IconSettings, IconPlus, IconArrowLeft, IconBasket, IconCheck } from "@tabler/icons-react"
 
 interface Props {
   initialList: ShoppingList
@@ -20,7 +20,17 @@ interface Props {
 export function ListDetail({ initialList, userEmail, listId }: Props) {
   const [list, setList] = useState<ShoppingList>(initialList)
   const [isFormOpen, setIsFormOpen] = useState(false)
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
   const router = useRouter()
+
+  function toggleChecked(productId: string) {
+    setCheckedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(productId)) next.delete(productId)
+      else next.add(productId)
+      return next
+    })
+  }
 
   useEffect(() => {
     let firestoreUnsub: (() => void) | undefined
@@ -84,15 +94,30 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
       {/* Product list */}
       {list.products.length > 0 ? (
         <ul className="flex flex-col gap-2">
-          {list.products.map((item, index) => (
-            <li
-              key={`${item.productId}-${index}`}
-              className="flex items-center justify-between border-2 border-black rounded-md px-4 py-3"
-            >
-              <span className="font-semibold capitalize">{item.name}</span>
-              <span className="text-sm text-text/50 font-medium">×{item.quantity}</span>
-            </li>
-          ))}
+          {list.products.map((item, index) => {
+            const checked = checkedIds.has(item.productId)
+            return (
+              <li key={`${item.productId}-${index}`} className="flex items-center gap-3">
+                <label className="cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggleChecked(item.productId)}
+                    className="sr-only"
+                  />
+                  <div className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-all duration-150 ${checked ? "bg-purple border-purple" : "border-black/30 bg-white"}`}>
+                    {checked && <IconCheck size={16} className="text-white" strokeWidth={3} />}
+                  </div>
+                </label>
+                <div className={`flex-1 flex items-center justify-between border-2 border-black rounded-md px-4 py-3 transition-opacity ${checked ? "opacity-50" : ""}`}>
+                  <span className={`font-semibold capitalize transition-all ${checked ? "line-through" : ""}`}>
+                    {item.name}
+                  </span>
+                  <span className="text-sm text-text/50 font-medium">×{item.quantity}</span>
+                </div>
+              </li>
+            )
+          })}
         </ul>
       ) : (
         <div className="flex flex-col items-center justify-center gap-2 py-20 text-center">
