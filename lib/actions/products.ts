@@ -50,3 +50,55 @@ export async function addProductToList(
   revalidatePath(`/lists/${listId}`)
 }
 
+export async function removeProductFromList(listId: string, productId: string) {
+  const session = await auth()
+  const email = session?.user?.email
+  if (!email) throw new Error("No autenticado")
+
+  const db = getDB()
+  const listRef = db.collection("lists").doc(listId)
+
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(listRef)
+    if (!snap.exists) throw new Error("Lista no encontrada")
+    const data = snap.data()!
+    if (!(data.memberEmails as string[]).includes(email)) throw new Error("Sin acceso a esta lista")
+    const products = (data.products ?? []) as { productId: string }[]
+    tx.update(listRef, {
+      products: products.filter((p) => p.productId !== productId),
+      updatedAt: FieldValue.serverTimestamp(),
+    })
+  })
+
+  revalidatePath(`/lists/${listId}`)
+}
+
+export async function updateProductQuantity(
+  listId: string,
+  productId: string,
+  delta: number,
+) {
+  const session = await auth()
+  const email = session?.user?.email
+  if (!email) throw new Error("No autenticado")
+
+  const db = getDB()
+  const listRef = db.collection("lists").doc(listId)
+
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(listRef)
+    if (!snap.exists) throw new Error("Lista no encontrada")
+    const data = snap.data()!
+    if (!(data.memberEmails as string[]).includes(email)) {
+      throw new Error("Sin acceso a esta lista")
+    }
+    const products = (data.products ?? []) as { productId: string; name: string; quantity: number }[]
+    const updated = products.map((p) =>
+      p.productId === productId ? { ...p, quantity: Math.max(1, p.quantity + delta) } : p,
+    )
+    tx.update(listRef, { products: updated, updatedAt: FieldValue.serverTimestamp() })
+  })
+
+  revalidatePath(`/lists/${listId}`)
+}
+

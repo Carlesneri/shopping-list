@@ -9,7 +9,8 @@ import { db, clientAuth } from "@/lib/firebase-client"
 import type { ShoppingList } from "@/lib/types"
 import { FabButton } from "@/components/ui/FabButton"
 import { AddProductForm } from "@/components/lists/AddProductForm"
-import { IconSettings, IconPlus, IconArrowLeft, IconBasket, IconCheck } from "@tabler/icons-react"
+import { updateProductQuantity, removeProductFromList } from "@/lib/actions/products"
+import { IconSettings, IconPlus, IconArrowLeft, IconBasket, IconCheck, IconTrash } from "@tabler/icons-react"
 
 interface Props {
   initialList: ShoppingList
@@ -22,6 +23,22 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
   const router = useRouter()
+
+  async function handleQuantityChange(productId: string, delta: number) {
+    try {
+      await updateProductQuantity(listId, productId, delta)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al actualizar cantidad")
+    }
+  }
+
+  async function handleRemove(productId: string) {
+    try {
+      await removeProductFromList(listId, productId)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al eliminar producto")
+    }
+  }
 
   function toggleChecked(productId: string) {
     setCheckedIds((prev) => {
@@ -113,8 +130,35 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
                   <span className={`font-semibold capitalize transition-all ${checked ? "line-through" : ""}`}>
                     {item.name}
                   </span>
-                  <span className="text-sm text-text/50 font-medium">×{item.quantity}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <FabButton
+                      type="button"
+                      color="blue"
+                      size="sm"
+                      onClick={() => handleQuantityChange(item.productId, -1)}
+                      disabled={item.quantity <= 1}
+                    >
+                      −
+                    </FabButton>
+                    <span className="font-bold text-sm min-w-5 text-center">{item.quantity}</span>
+                    <FabButton
+                      type="button"
+                      color="blue"
+                      size="sm"
+                      onClick={() => handleQuantityChange(item.productId, 1)}
+                    >
+                      +
+                    </FabButton>
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => handleRemove(item.productId)}
+                  className="shrink-0 p-1.5 text-text/30 hover:text-danger transition-colors cursor-pointer"
+                  aria-label="Eliminar producto"
+                >
+                  <IconTrash size={18} />
+                </button>
               </li>
             )
           })}
