@@ -27,18 +27,20 @@ function makeDB({ isMember = true }: { isMember?: boolean } = {}) {
     }),
   })
 
+  const productDocMock = vi.fn().mockReturnValue({ id: "leche", set: productSet })
+
   const db = {
     collection: vi.fn().mockImplementation((col: string) => {
       if (col === "lists") {
         return { doc: vi.fn().mockReturnValue({ get: listGet, update: listUpdate }) }
       }
       return {
-        doc: vi.fn().mockReturnValue({ id: "leche", set: productSet }),
+        doc: productDocMock,
       }
     }),
   }
 
-  return { db, listUpdate, productSet }
+  return { db, listUpdate, productSet, productDocMock }
 }
 
 describe("normalizeProductName", () => {
@@ -77,11 +79,12 @@ describe("addProductToList", () => {
 
   it("uses set+merge on products doc with normalized name as id", async () => {
     vi.mocked(auth).mockResolvedValue({ user: { email: "user@test.com" } } as any)
-    const { db, productSet } = makeDB()
+    const { db, productSet, productDocMock } = makeDB()
     vi.mocked(getDB).mockReturnValue(db as any)
 
     await addProductToList("list1", "  LECHE  ", 2)
 
+    expect(productDocMock).toHaveBeenCalledWith("leche")
     expect(productSet).toHaveBeenCalledWith(
       { name: "leche", timesSelected: expect.objectContaining({ _increment: 1 }) },
       { merge: true },
@@ -90,11 +93,12 @@ describe("addProductToList", () => {
 
   it("appends list product with normalized name as productId", async () => {
     vi.mocked(auth).mockResolvedValue({ user: { email: "user@test.com" } } as any)
-    const { db, listUpdate } = makeDB()
+    const { db, listUpdate, productDocMock } = makeDB()
     vi.mocked(getDB).mockReturnValue(db as any)
 
     await addProductToList("list1", "leche", 3)
 
+    expect(productDocMock).toHaveBeenCalledWith("leche")
     expect(listUpdate).toHaveBeenCalledWith({
       products: expect.objectContaining({
         _arrayUnion: [expect.objectContaining({ productId: "leche", name: "leche", quantity: 3 })],

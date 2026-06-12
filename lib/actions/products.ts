@@ -30,7 +30,8 @@ export async function addProductToList(
     throw new Error("Sin acceso a esta lista")
   }
 
-  const productRef = db.collection("productos").doc(normalizedName)
+  const productDocId = normalizedName.replace(/[/.]/g, "-")
+  const productRef = db.collection("productos").doc(productDocId)
   await productRef.set(
     { name: normalizedName, timesSelected: FieldValue.increment(1) },
     { merge: true },
