@@ -25,7 +25,12 @@ export function ListGrid({ userEmail }: { userEmail: string }) {
       firestoreUnsub = onSnapshot(
         q,
         (snap) => {
-          setLists(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as ShoppingList[])
+          setLists(
+            snap.docs.map((doc) => ({
+              id: doc.id,
+              ...doc.data(),
+            })) as ShoppingList[],
+          )
         },
         () => toast.error("Error al cargar las listas"),
       )
@@ -38,11 +43,7 @@ export function ListGrid({ userEmail }: { userEmail: string }) {
   }, [userEmail])
 
   if (lists.length === 0) {
-    return (
-      <p className="text-center text-text/60 py-12">
-        Aún no tienes listas. ¡Crea una!
-      </p>
-    )
+    return null
   }
 
   return (

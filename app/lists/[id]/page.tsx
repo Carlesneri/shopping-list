@@ -18,7 +18,8 @@ export default async function ListPage({ params }: Props) {
   if (!snap.exists) redirect("/")
 
   const data = snap.data()
-  if (!data || !(data.memberEmails as string[]).includes(session.user.email)) redirect("/")
+  if (!data || !(data.memberEmails as string[]).includes(session.user.email))
+    redirect("/")
 
   const list: ShoppingList = {
     id: snap.id,
@@ -27,15 +28,17 @@ export default async function ListPage({ params }: Props) {
     allowedUsers: data.allowedUsers,
     memberEmails: data.memberEmails,
     products: data.products ?? [],
-    createdAt: { seconds: data.createdAt?.seconds ?? 0, nanoseconds: data.createdAt?.nanoseconds ?? 0 },
-    updatedAt: { seconds: data.updatedAt?.seconds ?? 0, nanoseconds: data.updatedAt?.nanoseconds ?? 0 },
+    createdAt: {
+      seconds: data.createdAt?.seconds ?? 0,
+      nanoseconds: data.createdAt?.nanoseconds ?? 0,
+    },
+    updatedAt: {
+      seconds: data.updatedAt?.seconds ?? 0,
+      nanoseconds: data.updatedAt?.nanoseconds ?? 0,
+    },
   }
 
   return (
-    <ListDetail
-      initialList={list}
-      userEmail={session.user.email}
-      listId={id}
-    />
+    <ListDetail initialList={list} userEmail={session.user.email} listId={id} />
   )
 }

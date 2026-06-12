@@ -7,8 +7,8 @@ import Link from "next/link"
 import { toast } from "sonner"
 import { db, clientAuth } from "@/lib/firebase-client"
 import type { ShoppingList } from "@/lib/types"
-import { Button } from "@/components/ui/Button"
-import { IconShare, IconArrowLeft } from "@tabler/icons-react"
+import { FabButton } from "@/components/ui/FabButton"
+import { IconSettings, IconPlus, IconArrowLeft, IconBasket } from "@tabler/icons-react"
 
 interface Props {
   initialList: ShoppingList
@@ -49,26 +49,39 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
     <div className="px-4 py-6 max-w-lg mx-auto w-full">
       <Link
         href="/"
-        className="flex items-center gap-1 text-text/60 mb-4 hover:text-text transition-colors"
+        className="flex items-center gap-1 text-text/60 mb-5 hover:text-text transition-colors w-fit"
       >
         <IconArrowLeft size={18} />
-        <span className="text-sm">Mis listas</span>
+        <span className="text-sm font-medium">Mis listas</span>
       </Link>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">{list.title}</h1>
-        <p className="text-text/60">{list.market}</p>
+
+      <div className="flex items-start justify-between mb-8">
+        <div>
+          <h1 className="text-2xl font-bold leading-tight">{list.title}</h1>
+          <p className="text-text/50 text-sm mt-0.5">{list.market}</p>
+        </div>
+        {canShare && (
+          <Link href={`/lists/${listId}/settings`}>
+            <FabButton type="button" color="orange" size="sm">
+              <IconSettings size={18} />
+            </FabButton>
+          </Link>
+        )}
       </div>
-      <div className="py-12 text-center text-text/40">
-        <p>Aún no hay productos</p>
+
+      <div className="flex flex-col items-center justify-center gap-2 py-20 text-center">
+        <div className="w-16 h-16 rounded-full bg-text/5 flex items-center justify-center mb-2">
+          <IconBasket size={32} className="text-text/25" />
+        </div>
+        <p className="font-semibold text-text/40">Aún no hay productos</p>
+        <p className="text-sm text-text/30">Pulsa + para añadir el primero</p>
       </div>
-      {canShare && (
-        <Link href={`/lists/${listId}/settings`} className="fixed bottom-6 right-6">
-          <Button className="flex items-center gap-2">
-            <IconShare size={18} />
-            Compartir
-          </Button>
-        </Link>
-      )}
+
+      <div className="fixed bottom-6 right-6">
+        <FabButton type="button" color="purple">
+          <IconPlus size={28} />
+        </FabButton>
+      </div>
     </div>
   )
 }

@@ -7,6 +7,10 @@
   --color-warning: #ffc800;
   --color-text: #3c3c3c;
   --color-background: #ffffff;
+  --color-blue: #4a90d9;
+  --color-purple: #7c3aed;
+  --color-orange: #f97316;
+  --color-pink: #e91e8c;
   --font-sans: var(--font-nunito);
   --font-mono: var(--font-jetbrains);
   --radius-sm: 4px;
