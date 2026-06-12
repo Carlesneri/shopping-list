@@ -49,6 +49,7 @@ export async function addProductToList(
 
   await listRef.update({
     products: FieldValue.arrayUnion({ productId, name: normalizedName, quantity }),
+    updatedAt: FieldValue.serverTimestamp(),
   })
 
   revalidatePath(`/lists/${listId}`)

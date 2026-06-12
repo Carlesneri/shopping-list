@@ -7,6 +7,7 @@ vi.mock("firebase-admin/firestore", () => ({
   FieldValue: {
     increment: vi.fn((n: number) => ({ _increment: n })),
     arrayUnion: vi.fn((...args: unknown[]) => ({ _arrayUnion: args })),
+    serverTimestamp: vi.fn(() => ({ _serverTimestamp: true })),
   },
 }))
 
@@ -69,6 +70,11 @@ describe("addProductToList", () => {
     await expect(addProductToList("list1", "leche", 1)).rejects.toThrow("No autenticado")
   })
 
+  it("throws when name is blank", async () => {
+    vi.mocked(auth).mockResolvedValue({ user: { email: "user@test.com" } } as any)
+    await expect(addProductToList("list1", "   ", 1)).rejects.toThrow("El nombre no puede estar vacío")
+  })
+
   it("throws when caller is not a list member", async () => {
     vi.mocked(auth).mockResolvedValue({ user: { email: "user@test.com" } } as any)
     const { db } = makeDB({ isMember: false })
@@ -86,6 +92,7 @@ describe("addProductToList", () => {
     expect(productAdd).toHaveBeenCalledWith({ name: "leche", timesSelected: 1 })
     expect(listUpdate).toHaveBeenCalledWith({
       products: expect.objectContaining({ _arrayUnion: [expect.objectContaining({ name: "leche", quantity: 2 })] }),
+      updatedAt: expect.objectContaining({ _serverTimestamp: true }),
     })
   })
 
@@ -102,6 +109,7 @@ describe("addProductToList", () => {
       products: expect.objectContaining({
         _arrayUnion: [expect.objectContaining({ productId: "existing-id", name: "leche", quantity: 1 })],
       }),
+      updatedAt: expect.objectContaining({ _serverTimestamp: true }),
     })
   })
 })
