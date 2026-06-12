@@ -15,6 +15,7 @@ export interface ListProduct {
   productId: string
   name: string
   quantity: number
+  checked?: boolean
 }
 
 export interface ShoppingList {

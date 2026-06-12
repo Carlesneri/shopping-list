@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { getDB } from "@/lib/firebase-admin"
 import { UserList } from "@/components/lists/UserList"
 import { AddUserForm } from "@/components/lists/AddUserForm"
+import { RenameListForm } from "@/components/lists/RenameListForm"
 import { deleteList } from "@/lib/actions/lists"
 import { Button } from "@/components/ui/Button"
 import { IconArrowLeft } from "@tabler/icons-react"
@@ -50,7 +51,12 @@ export default async function ListSettingsPage({ params }: Props) {
         <IconArrowLeft size={18} />
         <span className="text-sm">Volver a la lista</span>
       </Link>
-      <h1 className="text-2xl font-bold mb-6">Compartir &ldquo;{list.title}&rdquo;</h1>
+      <h1 className="text-2xl font-bold mb-6">Ajustes &ldquo;{list.title}&rdquo;</h1>
+      {isOwner && (
+        <div className="mb-8 pb-6 border-b border-black/10">
+          <RenameListForm listId={id} currentTitle={list.title} />
+        </div>
+      )}
       <UserList list={list} currentUserEmail={session.user.email} canManage={canManage} />
       {canManage && <AddUserForm listId={id} />}
       {isOwner && (

@@ -73,6 +73,29 @@ export async function removeProductFromList(listId: string, productId: string) {
   revalidatePath(`/lists/${listId}`)
 }
 
+export async function toggleProductChecked(listId: string, productId: string, checked: boolean) {
+  const session = await auth()
+  const email = session?.user?.email
+  if (!email) throw new Error("No autenticado")
+
+  const db = getDB()
+  const listRef = db.collection("lists").doc(listId)
+
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(listRef)
+    if (!snap.exists) throw new Error("Lista no encontrada")
+    const data = snap.data()!
+    if (!(data.memberEmails as string[]).includes(email)) throw new Error("Sin acceso a esta lista")
+    const products = (data.products ?? []) as { productId: string }[]
+    tx.update(listRef, {
+      products: products.map((p) => p.productId === productId ? { ...p, checked } : p),
+      updatedAt: FieldValue.serverTimestamp(),
+    })
+  })
+
+  revalidatePath(`/lists/${listId}`)
+}
+
 export async function updateProductQuantity(
   listId: string,
   productId: string,

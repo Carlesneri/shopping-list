@@ -9,7 +9,7 @@ import { db, clientAuth } from "@/lib/firebase-client"
 import type { ShoppingList } from "@/lib/types"
 import { FabButton } from "@/components/ui/FabButton"
 import { AddProductForm } from "@/components/lists/AddProductForm"
-import { updateProductQuantity, removeProductFromList } from "@/lib/actions/products"
+import { updateProductQuantity, removeProductFromList, toggleProductChecked } from "@/lib/actions/products"
 import { IconSettings, IconPlus, IconArrowLeft, IconBasket, IconCheck, IconTrash } from "@tabler/icons-react"
 
 interface Props {
@@ -21,8 +21,15 @@ interface Props {
 export function ListDetail({ initialList, userEmail, listId }: Props) {
   const [list, setList] = useState<ShoppingList>(initialList)
   const [isFormOpen, setIsFormOpen] = useState(false)
-  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
   const router = useRouter()
+
+  async function handleToggleChecked(productId: string, current: boolean) {
+    try {
+      await toggleProductChecked(listId, productId, !current)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al guardar")
+    }
+  }
 
   async function handleQuantityChange(productId: string, delta: number) {
     try {
@@ -38,15 +45,6 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error al eliminar producto")
     }
-  }
-
-  function toggleChecked(productId: string) {
-    setCheckedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(productId)) next.delete(productId)
-      else next.add(productId)
-      return next
-    })
   }
 
   useEffect(() => {
@@ -98,31 +96,27 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
         )}
       </div>
 
-      {/* Animated form slot */}
-      <div
-        className="overflow-hidden transition-all duration-300 ease-in-out"
-        style={{ maxHeight: isFormOpen ? "400px" : "0px", opacity: isFormOpen ? 1 : 0 }}
-      >
+      {isFormOpen && (
         <div className="mb-6">
           <AddProductForm listId={listId} onClose={() => setIsFormOpen(false)} />
         </div>
-      </div>
+      )}
 
       {/* Product list */}
       {list.products.length > 0 ? (
         <ul className="flex flex-col gap-2">
           {list.products.map((item, index) => {
-            const checked = checkedIds.has(item.productId)
+            const checked = item.checked ?? false
             return (
               <li key={`${item.productId}-${index}`} className="flex items-center gap-3">
                 <label className="cursor-pointer shrink-0">
                   <input
                     type="checkbox"
                     checked={checked}
-                    onChange={() => toggleChecked(item.productId)}
+                    onChange={() => handleToggleChecked(item.productId, checked)}
                     className="sr-only"
                   />
-                  <div className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-all duration-150 ${checked ? "bg-purple border-purple" : "border-black/30 bg-white"}`}>
+                  <div className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-all duration-150 ${checked ? "bg-primary border-primary" : "border-black/30 bg-white"}`}>
                     {checked && <IconCheck size={16} className="text-white" strokeWidth={3} />}
                   </div>
                 </label>

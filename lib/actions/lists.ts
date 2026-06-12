@@ -106,6 +106,29 @@ export async function removeUserFromList(listId: string, email: string) {
   revalidatePath(`/lists/${listId}/settings`)
 }
 
+export async function renameList(listId: string, title: string) {
+  const session = await auth()
+  const email = session?.user?.email
+  if (!email) throw new Error("No autenticado")
+
+  const trimmed = title.trim()
+  if (!trimmed) throw new Error("El nombre no puede estar vacío")
+
+  const db = getDB()
+  const listRef = db.collection("lists").doc(listId)
+  const snap = await listRef.get()
+  if (!snap.exists) throw new Error("Lista no encontrada")
+
+  const caller = (snap.data()!.allowedUsers as AllowedUser[]).find(
+    (u) => u.email === email,
+  )
+  if (caller?.role !== "owner") throw new Error("Solo el propietario puede renombrar la lista")
+
+  await listRef.update({ title: trimmed, updatedAt: FieldValue.serverTimestamp() })
+  revalidatePath(`/lists/${listId}`)
+  revalidatePath(`/lists/${listId}/settings`)
+}
+
 export async function deleteList(listId: string) {
   const session = await auth()
   if (!session?.user?.email) throw new Error("No autenticado")

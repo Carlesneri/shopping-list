@@ -4,6 +4,7 @@ import { useState } from "react"
 import { toast } from "sonner"
 import { addProductToList } from "@/lib/actions/products"
 import { Button } from "@/components/ui/Button"
+import { FabButton } from "@/components/ui/FabButton"
 
 interface Props {
   listId: string
@@ -46,21 +47,34 @@ export function AddProductForm({ listId, onClose }: Props) {
       <datalist id="productos-datalist" />
       <div className="flex items-center gap-3">
         <label className="font-semibold text-sm text-text/70">Cantidad</label>
-        <input
-          type="number"
-          value={quantity}
-          onChange={(e) => setQuantity(Math.max(1, Number(e.target.value)))}
-          min={1}
-          required
-          className="border-2 border-black rounded-md px-3 py-2 w-20 font-sans focus:outline-none focus:border-primary"
-        />
+        <div className="flex items-center gap-3">
+          <FabButton
+            type="button"
+            color="blue"
+            size="sm"
+            onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+            disabled={loading || quantity <= 1}
+          >
+            −
+          </FabButton>
+          <span className="font-bold text-lg min-w-8 text-center select-none">{quantity}</span>
+          <FabButton
+            type="button"
+            color="blue"
+            size="sm"
+            onClick={() => setQuantity((q) => q + 1)}
+            disabled={loading}
+          >
+            +
+          </FabButton>
+        </div>
       </div>
       <div className="flex gap-2">
-        <Button type="submit" disabled={loading} className="flex-1">
-          {loading ? "Añadiendo…" : "Añadir"}
-        </Button>
         <Button type="button" variant="ghost" onClick={onClose} disabled={loading} className="flex-1">
           Cancelar
+        </Button>
+        <Button type="submit" disabled={loading} className="flex-1">
+          {loading ? "Añadiendo…" : "Añadir"}
         </Button>
       </div>
     </form>
