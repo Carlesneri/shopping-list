@@ -5,13 +5,25 @@ export interface AllowedUser {
   role: Role
 }
 
+export interface Product {
+  id: string
+  name: string
+  timesSelected: number
+}
+
+export interface ListProduct {
+  productId: string
+  name: string
+  quantity: number
+}
+
 export interface ShoppingList {
   id: string
   title: string
   market: string
   allowedUsers: AllowedUser[]
   memberEmails: string[]
-  products: never[]
+  products: ListProduct[]
   createdAt: { seconds: number; nanoseconds: number }
   updatedAt: { seconds: number; nanoseconds: number }
 }
