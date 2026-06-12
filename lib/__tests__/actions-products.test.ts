@@ -13,15 +13,12 @@ vi.mock("firebase-admin/firestore", () => ({
 
 import { auth } from "@/auth"
 import { getDB } from "@/lib/firebase-admin"
-import { normalizeProductName, addProductToList } from "../actions/products"
+import { normalizeProductName } from "@/lib"
+import { addProductToList } from "../actions/products"
 
-function makeDB({
-  isMember = true,
-  productExists = false,
-}: { isMember?: boolean; productExists?: boolean } = {}) {
+function makeDB({ isMember = true }: { isMember?: boolean } = {}) {
   const listUpdate = vi.fn().mockResolvedValue(undefined)
-  const productUpdate = vi.fn().mockResolvedValue(undefined)
-  const productAdd = vi.fn().mockResolvedValue({ id: "new-product-id" })
+  const productSet = vi.fn().mockResolvedValue(undefined)
 
   const listGet = vi.fn().mockResolvedValue({
     exists: true,
@@ -30,27 +27,18 @@ function makeDB({
     }),
   })
 
-  const productQueryGet = vi.fn().mockResolvedValue(
-    productExists
-      ? { empty: false, docs: [{ id: "existing-id", ref: { update: productUpdate } }] }
-      : { empty: true, docs: [] },
-  )
-
   const db = {
     collection: vi.fn().mockImplementation((col: string) => {
       if (col === "lists") {
         return { doc: vi.fn().mockReturnValue({ get: listGet, update: listUpdate }) }
       }
       return {
-        where: vi.fn().mockReturnValue({
-          limit: vi.fn().mockReturnValue({ get: productQueryGet }),
-        }),
-        add: productAdd,
+        doc: vi.fn().mockReturnValue({ id: "leche", set: productSet }),
       }
     }),
   }
 
-  return { db, listUpdate, productUpdate, productAdd }
+  return { db, listUpdate, productSet }
 }
 
 describe("normalizeProductName", () => {
@@ -75,6 +63,11 @@ describe("addProductToList", () => {
     await expect(addProductToList("list1", "   ", 1)).rejects.toThrow("El nombre no puede estar vacío")
   })
 
+  it("throws when quantity is invalid", async () => {
+    vi.mocked(auth).mockResolvedValue({ user: { email: "user@test.com" } } as any)
+    await expect(addProductToList("list1", "leche", 0)).rejects.toThrow("Cantidad inválida")
+  })
+
   it("throws when caller is not a list member", async () => {
     vi.mocked(auth).mockResolvedValue({ user: { email: "user@test.com" } } as any)
     const { db } = makeDB({ isMember: false })
@@ -82,32 +75,29 @@ describe("addProductToList", () => {
     await expect(addProductToList("list1", "leche", 1)).rejects.toThrow("Sin acceso")
   })
 
-  it("creates a new product when name does not exist", async () => {
+  it("uses set+merge on products doc with normalized name as id", async () => {
     vi.mocked(auth).mockResolvedValue({ user: { email: "user@test.com" } } as any)
-    const { db, productAdd, listUpdate } = makeDB({ productExists: false })
+    const { db, productSet } = makeDB()
     vi.mocked(getDB).mockReturnValue(db as any)
 
     await addProductToList("list1", "  LECHE  ", 2)
 
-    expect(productAdd).toHaveBeenCalledWith({ name: "leche", timesSelected: 1 })
-    expect(listUpdate).toHaveBeenCalledWith({
-      products: expect.objectContaining({ _arrayUnion: [expect.objectContaining({ name: "leche", quantity: 2 })] }),
-      updatedAt: expect.objectContaining({ _serverTimestamp: true }),
-    })
+    expect(productSet).toHaveBeenCalledWith(
+      { name: "leche", timesSelected: expect.objectContaining({ _increment: 1 }) },
+      { merge: true },
+    )
   })
 
-  it("increments timesSelected when product already exists", async () => {
+  it("appends list product with normalized name as productId", async () => {
     vi.mocked(auth).mockResolvedValue({ user: { email: "user@test.com" } } as any)
-    const { db, productUpdate, productAdd, listUpdate } = makeDB({ productExists: true })
+    const { db, listUpdate } = makeDB()
     vi.mocked(getDB).mockReturnValue(db as any)
 
-    await addProductToList("list1", "leche", 1)
+    await addProductToList("list1", "leche", 3)
 
-    expect(productAdd).not.toHaveBeenCalled()
-    expect(productUpdate).toHaveBeenCalledWith({ timesSelected: expect.objectContaining({ _increment: 1 }) })
     expect(listUpdate).toHaveBeenCalledWith({
       products: expect.objectContaining({
-        _arrayUnion: [expect.objectContaining({ productId: "existing-id", name: "leche", quantity: 1 })],
+        _arrayUnion: [expect.objectContaining({ productId: "leche", name: "leche", quantity: 3 })],
       }),
       updatedAt: expect.objectContaining({ _serverTimestamp: true }),
     })

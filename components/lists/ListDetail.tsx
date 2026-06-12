@@ -35,7 +35,7 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
           if (!snap.exists()) { router.push("/"); return }
           const data = snap.data()
           if (!(data.memberEmails as string[]).includes(userEmail)) { router.push("/"); return }
-          setList({ id: snap.id, ...data } as ShoppingList)
+          setList({ id: snap.id, ...data, products: data.products ?? [] } as ShoppingList)
         },
         () => { toast.error("Error al cargar la lista"); router.push("/") },
       )

@@ -4,10 +4,7 @@ import { FieldValue } from "firebase-admin/firestore"
 import { revalidatePath } from "next/cache"
 import { auth } from "@/auth"
 import { getDB } from "@/lib/firebase-admin"
-
-export function normalizeProductName(name: string): string {
-  return name.trim().toLowerCase()
-}
+import { normalizeProductName } from "@/lib"
 
 export async function addProductToList(
   listId: string,
@@ -19,6 +16,7 @@ export async function addProductToList(
 
   const normalizedName = normalizeProductName(name)
   if (!normalizedName) throw new Error("El nombre no puede estar vacío")
+  if (!Number.isFinite(quantity) || quantity < 1) throw new Error("Cantidad inválida")
 
   const db = getDB()
   const listRef = db.collection("lists").doc(listId)
@@ -26,29 +24,25 @@ export async function addProductToList(
 
   if (!listSnap.exists) throw new Error("Lista no encontrada")
 
-  if (!(listSnap.data()!.memberEmails as string[]).includes(session.user.email)) {
+  if (
+    !(listSnap.data()!.memberEmails as string[]).includes(session.user.email)
+  ) {
     throw new Error("Sin acceso a esta lista")
   }
 
-  const productosRef = db.collection("productos")
-  const existing = await productosRef
-    .where("name", "==", normalizedName)
-    .limit(1)
-    .get()
-
-  let productId: string
-
-  if (!existing.empty) {
-    const doc = existing.docs[0]
-    productId = doc.id
-    await doc.ref.update({ timesSelected: FieldValue.increment(1) })
-  } else {
-    const newDoc = await productosRef.add({ name: normalizedName, timesSelected: 1 })
-    productId = newDoc.id
-  }
+  const productRef = db.collection("productos").doc(normalizedName)
+  await productRef.set(
+    { name: normalizedName, timesSelected: FieldValue.increment(1) },
+    { merge: true },
+  )
+  const productId = productRef.id
 
   await listRef.update({
-    products: FieldValue.arrayUnion({ productId, name: normalizedName, quantity }),
+    products: FieldValue.arrayUnion({
+      productId,
+      name: normalizedName,
+      quantity,
+    }),
     updatedAt: FieldValue.serverTimestamp(),
   })
 

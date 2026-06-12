@@ -59,7 +59,7 @@ export function AddProductForm({ listId, onClose }: Props) {
         <Button type="submit" disabled={loading} className="flex-1">
           {loading ? "Añadiendo…" : "Añadir"}
         </Button>
-        <Button type="button" variant="ghost" onClick={onClose} className="flex-1">
+        <Button type="button" variant="ghost" onClick={onClose} disabled={loading} className="flex-1">
           Cancelar
         </Button>
       </div>
