@@ -2,19 +2,15 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /lists/{listId} {
-      // Reads: user's email (from custom token claim) must be in memberEmails
       allow read: if request.auth != null
         && request.auth.token.email in resource.data.memberEmails;
-
-      // Creates: any authenticated user can create a list
       allow create: if request.auth != null;
-
-      // All updates and deletes go through Server Actions (Admin SDK bypasses rules)
       allow update, delete: if false;
     }
 
-    match /products/{productId} {
-      allow read, write: if false;
+    match /productos/{productId} {
+      allow read: if request.auth != null;
+      allow write: if false;
     }
   }
 }
