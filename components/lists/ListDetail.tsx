@@ -120,7 +120,7 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
                     {checked && <IconCheck size={16} className="text-white" strokeWidth={3} />}
                   </div>
                 </label>
-                <div className={`flex-1 flex items-center justify-between border-2 border-black rounded-md px-4 py-3 transition-opacity ${checked ? "opacity-50" : ""}`}>
+                <div className={`flex-1 flex items-center justify-between border-2 border-blue rounded-md px-4 py-3 transition-opacity ${checked ? "opacity-50" : ""}`}>
                   <span className={`font-semibold capitalize transition-all ${checked ? "line-through" : ""}`}>
                     {item.name}
                   </span>
@@ -168,7 +168,7 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
       )}
 
       <div className="fixed bottom-6 right-6">
-        <FabButton type="button" color="purple" onClick={() => setIsFormOpen((v) => !v)}>
+        <FabButton type="button" color="blue" onClick={() => setIsFormOpen((v) => !v)}>
           <IconPlus size={28} />
         </FabButton>
       </div>
