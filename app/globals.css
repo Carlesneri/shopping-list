@@ -64,7 +64,7 @@ body {
   }
 }
 
-.animate-ufo {
+@utility animate-ufo {
   animation:
     ufo-float 2.8s ease-in-out infinite,
     ufo-colors 3s ease infinite;

@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { IconUfoFilled } from "@tabler/icons-react"
 import { collection, query, where, onSnapshot } from "firebase/firestore"
 import { onAuthStateChanged } from "firebase/auth"
 import { toast } from "sonner"
 import { db, clientAuth } from "@/lib/firebase-client"
 import type { ShoppingList } from "@/lib/types"
+import { Loader } from "@/components/ui/Loader"
 import { ListCard } from "./ListCard"
 
 export function ListGrid({ userEmail }: { userEmail: string }) {
@@ -58,9 +58,7 @@ export function ListGrid({ userEmail }: { userEmail: string }) {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-8">
-        <IconUfoFilled size={36} className="animate-ufo text-primary" />
-      </div>
+      <Loader className="py-8" />
     )
   }
 

@@ -10,7 +10,14 @@ export async function TopBar() {
   return (
     <header className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 bg-background border-b border-black/10 shadow-sm">
       <Link href="/" className="flex items-center">
-        <Image src="/logo.png" alt="COMPALE" width={120} height={40} priority />
+        <Image
+          src="/logo.png"
+          alt="COMPALE"
+          width={327}
+          height={88}
+          priority
+          className="h-10 w-auto"
+        />
       </Link>
       {session?.user && (
         <div className="flex items-center gap-3">
