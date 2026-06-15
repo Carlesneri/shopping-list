@@ -5,13 +5,8 @@ import { redirect } from "next/navigation"
 import { FieldValue } from "firebase-admin/firestore"
 import { revalidatePath } from "next/cache"
 import { getDB } from "@/lib/firebase-admin"
+import { validateListInput } from "@/lib/list-validation"
 import type { AllowedUser, Role } from "@/lib/types"
-
-function validateListInput(title: string, market: string) {
-  if (!title.trim()) throw new Error("El título es requerido")
-  if (!market.trim()) throw new Error("El mercado es requerido")
-  return { title: title.trim(), market: market.trim() }
-}
 
 export async function createList(formData: FormData) {
   const session = await auth()

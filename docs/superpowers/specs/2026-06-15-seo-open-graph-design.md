@@ -69,7 +69,8 @@ metadata merge applies it to all `/lists/*` routes (`[id]`, `[id]/settings`,
 - `app/manifest.ts` — `name: "COMPALE — Tu lista de la compra colaborativa"`,
   `short_name: "COMPALE"`, `description`, `start_url: "/"`, `display: "standalone"`,
   `lang: "es"`, `background_color: "#ffffff"`, `theme_color: "#58cc02"`,
-  `icons` referencing existing `logo.png` (see limitation).
+  `icons` referencing square PWA icons named by size: `/icon-192.png` (192×192)
+  and `/icon-512.png` (512×512). User will create these image assets.
 
 ### 4. Testing
 
@@ -84,13 +85,11 @@ spec (e.g. `app/__tests__/seo.test.ts` or alongside) asserting:
 Static `metadata`/`viewport` objects in layouts are config, not logic, and are
 not meaningfully unit-testable — no fabricated coverage there.
 
-## Known limitation
+## Image assets
 
-A proper PWA install/home-screen experience wants square 192×192 and 512×512
-icons. Existing assets are a wide wordmark (`icon.png`/`logo.png`, 327×88) and
-`compale.png` (677×369) — none square. The manifest will reference `logo.png`
-and this gap is documented; proper square icons should be added later. Approved
-to ship without generating new image assets.
+The manifest references square PWA icons `public/icon-192.png` (192×192) and
+`public/icon-512.png` (512×512), named by size. The user will create these
+assets; this change references them by path and does not generate them.
 
 ## Files touched
 

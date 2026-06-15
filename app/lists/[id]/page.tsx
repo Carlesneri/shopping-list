@@ -1,27 +1,24 @@
+import type { Metadata } from "next"
+import { cache } from "react"
 import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import { getDB } from "@/lib/firebase-admin"
 import { ListDetail } from "@/components/lists/ListDetail"
+import { buildListMetadata } from "@/lib/list-metadata"
 import type { ShoppingList } from "@/lib/types"
 
 interface Props {
   params: Promise<{ id: string }>
 }
 
-export default async function ListPage({ params }: Props) {
-  const { id } = await params
-  const session = await auth()
-  if (!session?.user?.email) redirect("/")
-
+const getList = cache(async (id: string): Promise<ShoppingList | null> => {
   const snap = await getDB().collection("lists").doc(id).get()
-
-  if (!snap.exists) redirect("/")
+  if (!snap.exists) return null
 
   const data = snap.data()
-  if (!data || !(data.memberEmails as string[]).includes(session.user.email))
-    redirect("/")
+  if (!data) return null
 
-  const list: ShoppingList = {
+  return {
     id: snap.id,
     title: data.title,
     market: data.market,
@@ -37,6 +34,29 @@ export default async function ListPage({ params }: Props) {
       nanoseconds: data.updatedAt?.nanoseconds ?? 0,
     },
   }
+})
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { id } = await params
+  const list = await getList(id)
+  if (!list) return {}
+
+  const { title, description } = buildListMetadata(list)
+  return {
+    title,
+    description,
+    openGraph: { title, description },
+    twitter: { title, description },
+  }
+}
+
+export default async function ListPage({ params }: Props) {
+  const { id } = await params
+  const session = await auth()
+  if (!session?.user?.email) redirect("/")
+
+  const list = await getList(id)
+  if (!list || !list.memberEmails.includes(session.user.email)) redirect("/")
 
   return (
     <ListDetail initialList={list} userEmail={session.user.email} listId={id} />
