@@ -6,6 +6,7 @@ import { AddUserForm } from "@/components/lists/AddUserForm"
 import { RenameListForm } from "@/components/lists/RenameListForm"
 import { deleteList } from "@/lib/actions/lists"
 import { Button } from "@/components/ui/Button"
+import { ShareButton } from "@/components/ui/ShareButton"
 import { IconArrowLeft } from "@tabler/icons-react"
 import Link from "next/link"
 import type { ShoppingList } from "@/lib/types"
@@ -24,9 +25,9 @@ export default async function ListSettingsPage({ params }: Props) {
 
   const data = snap.data()
   if (!data) redirect("/")
-  const userEntry = (data.allowedUsers as { email: string; role: string }[]).find(
-    (u) => u.email === session.user?.email,
-  )
+  const userEntry = (
+    data.allowedUsers as { email: string; role: string }[]
+  ).find((u) => u.email === session.user?.email)
   if (!userEntry) redirect("/")
 
   const list: ShoppingList = {
@@ -36,8 +37,14 @@ export default async function ListSettingsPage({ params }: Props) {
     allowedUsers: data.allowedUsers,
     memberEmails: data.memberEmails,
     products: data.products ?? [],
-    createdAt: { seconds: data.createdAt?.seconds ?? 0, nanoseconds: data.createdAt?.nanoseconds ?? 0 },
-    updatedAt: { seconds: data.updatedAt?.seconds ?? 0, nanoseconds: data.updatedAt?.nanoseconds ?? 0 },
+    createdAt: {
+      seconds: data.createdAt?.seconds ?? 0,
+      nanoseconds: data.createdAt?.nanoseconds ?? 0,
+    },
+    updatedAt: {
+      seconds: data.updatedAt?.seconds ?? 0,
+      nanoseconds: data.updatedAt?.nanoseconds ?? 0,
+    },
   }
   const canManage = userEntry.role === "owner" || userEntry.role === "admin"
   const isOwner = userEntry.role === "owner"
@@ -51,13 +58,22 @@ export default async function ListSettingsPage({ params }: Props) {
         <IconArrowLeft size={18} />
         <span className="text-sm">Volver a la lista</span>
       </Link>
-      <h1 className="text-2xl font-bold mb-6">Ajustes &ldquo;{list.title}&rdquo;</h1>
+      <div className="flex items-start justify-between gap-3 mb-6">
+        <h1 className="text-2xl font-bold">
+          Ajustes &ldquo;{list.title}&rdquo;
+        </h1>
+        <ShareButton path={`/lists/${id}`} color="blue" />
+      </div>
       {isOwner && (
         <div className="mb-8 pb-6 border-b border-black/10">
           <RenameListForm listId={id} currentTitle={list.title} />
         </div>
       )}
-      <UserList list={list} currentUserEmail={session.user.email} canManage={canManage} />
+      <UserList
+        list={list}
+        currentUserEmail={session.user.email}
+        canManage={canManage}
+      />
       {canManage && <AddUserForm listId={id} />}
       {isOwner && (
         <form

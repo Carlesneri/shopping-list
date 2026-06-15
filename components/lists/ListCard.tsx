@@ -1,12 +1,16 @@
 import Link from "next/link"
 import { IconShoppingCart, IconUsers } from "@tabler/icons-react"
+import { ShareButton } from "@/components/ui/ShareButton"
 import type { ShoppingList } from "@/lib/types"
 
 export function ListCard({ list }: { list: ShoppingList }) {
   return (
     <Link href={`/lists/${list.id}`}>
-      <div className="flex flex-col gap-1 p-4 bg-white rounded-md border-2 border-purple shadow-[0_4px_0_0_#5b1fb5] hover:translate-y-px hover:shadow-[0_3px_0_0_#5b1fb5] active:translate-y-1 active:shadow-none transition-transform">
-        <h2 className="font-bold text-lg leading-tight">{list.title}</h2>
+      <div className="relative flex flex-col gap-1 p-4 bg-white rounded-md border-2 border-purple shadow-[0_4px_0_0_#5b1fb5] hover:translate-y-px hover:shadow-[0_3px_0_0_#5b1fb5] active:translate-y-1 active:shadow-none transition-transform">
+        <div className="absolute top-3 right-3">
+          <ShareButton path={`/lists/${list.id}`} variant="plain" />
+        </div>
+        <h2 className="font-bold text-lg leading-tight pr-12">{list.title}</h2>
         <div className="flex items-center gap-1 text-text/60 text-sm">
           <IconShoppingCart size={14} />
           <span>{list.market}</span>

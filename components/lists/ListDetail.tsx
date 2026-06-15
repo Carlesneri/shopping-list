@@ -8,6 +8,7 @@ import { toast } from "sonner"
 import { db, clientAuth } from "@/lib/firebase-client"
 import type { ShoppingList } from "@/lib/types"
 import { FabButton } from "@/components/ui/FabButton"
+import { ShareButton } from "@/components/ui/ShareButton"
 import { AddProductForm } from "@/components/lists/AddProductForm"
 import {
   updateProductQuantity,
@@ -161,13 +162,16 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
           <h1 className="text-2xl font-bold leading-tight">{list.title}</h1>
           <p className="text-text/50 text-sm mt-0.5">{list.market}</p>
         </div>
-        {canShare && (
-          <Link href={`/lists/${listId}/settings`}>
-            <FabButton type="button" color="orange" size="sm">
-              <IconSettings size={18} />
-            </FabButton>
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          <ShareButton path={`/lists/${listId}`} color="blue" />
+          {canShare && (
+            <Link href={`/lists/${listId}/settings`}>
+              <FabButton type="button" color="orange" size="sm">
+                <IconSettings size={18} />
+              </FabButton>
+            </Link>
+          )}
+        </div>
       </div>
 
       {isFormOpen && (
