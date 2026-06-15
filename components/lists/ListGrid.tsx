@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
+import { IconUfoFilled } from "@tabler/icons-react"
 import { collection, query, where, onSnapshot } from "firebase/firestore"
 import { onAuthStateChanged } from "firebase/auth"
 import { toast } from "sonner"
@@ -10,13 +12,17 @@ import { ListCard } from "./ListCard"
 
 export function ListGrid({ userEmail }: { userEmail: string }) {
   const [lists, setLists] = useState<ShoppingList[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let firestoreUnsub: (() => void) | undefined
 
     const authUnsub = onAuthStateChanged(clientAuth, (user) => {
       firestoreUnsub?.()
-      if (!user) return
+      if (!user) {
+        setLoading(false)
+        return
+      }
 
       const q = query(
         collection(db, "lists"),
@@ -25,14 +31,22 @@ export function ListGrid({ userEmail }: { userEmail: string }) {
       firestoreUnsub = onSnapshot(
         q,
         (snap) => {
-          setLists(
-            snap.docs.map((doc) => ({
-              id: doc.id,
-              ...doc.data(),
-            })) as ShoppingList[],
+          const docs = snap.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          })) as ShoppingList[]
+          docs.sort(
+            (a, b) =>
+              (b.updatedAt?.seconds ?? 0) - (a.updatedAt?.seconds ?? 0) ||
+              (b.updatedAt?.nanoseconds ?? 0) - (a.updatedAt?.nanoseconds ?? 0),
           )
+          setLists(docs)
+          setLoading(false)
         },
-        () => toast.error("Error al cargar las listas"),
+        () => {
+          toast.error("Error al cargar las listas")
+          setLoading(false)
+        },
       )
     })
 
@@ -42,8 +56,26 @@ export function ListGrid({ userEmail }: { userEmail: string }) {
     }
   }, [userEmail])
 
+  if (loading) {
+    return (
+      <div className="flex justify-center py-8">
+        <IconUfoFilled size={36} className="animate-ufo text-primary" />
+      </div>
+    )
+  }
+
   if (lists.length === 0) {
-    return null
+    return (
+      <div className="flex flex-col items-center gap-3 py-8 text-center">
+        <p className="text-text/60">Aún no tienes ninguna lista.</p>
+        <Link
+          href="/lists/new"
+          className="font-bold text-purple underline underline-offset-4 hover:text-purple/80"
+        >
+          Crea tu primera lista
+        </Link>
+      </div>
+    )
   }
 
   return (

@@ -11,17 +11,14 @@ export default async function HomePage() {
 
   return (
     <div className="flex flex-col items-center justify-center gap-8 px-4 py-16 text-center">
-      <Image
-        src="/compale.png"
-        alt="COMPALE — lista de la compra colaborativa"
-        width={480}
-        height={340}
-        priority
-        className="w-full max-w-sm"
-      />
       {session ? (
-        <div className="px-4 py-6 max-w-lg mx-auto w-full">
-          <ListGrid userEmail={session.user?.email!} />
+        <div className="max-w-lg mx-auto w-full">
+          {session.user?.name && (
+            <h2 className="text-2xl font-bold mb-6">
+              Hola, {session.user.name}
+            </h2>
+          )}
+          {session.user?.email && <ListGrid userEmail={session.user?.email} />}
           <Link href="/lists/new" className="fixed bottom-6 right-6">
             <FabButton type="button" color="purple">
               <IconPlus size={28} />
@@ -40,6 +37,20 @@ export default async function HomePage() {
           </Button>
         </form>
       )}
+
+      <Image
+        src="/compale.png"
+        alt="COMPALE — lista de la compra colaborativa"
+        width={480}
+        height={340}
+        priority
+        className="h-auto w-full max-w-sm object-contain"
+      />
+      <h1>
+        <span className="text-lg font-semibold text-gray-600">
+          Tu lista de la compra colaborativa
+        </span>
+      </h1>
     </div>
   )
 }

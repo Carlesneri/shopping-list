@@ -23,28 +23,58 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
   const [isFormOpen, setIsFormOpen] = useState(false)
   const router = useRouter()
 
-  async function handleToggleChecked(productId: string, current: boolean) {
+  // Optimistic helper: apply `optimistic` to local state immediately, run the
+  // server action, and roll back to the pre-action products on failure. The
+  // onSnapshot listener remains the source of truth and reconciles on success.
+  async function runOptimistic(
+    optimistic: (products: ShoppingList["products"]) => ShoppingList["products"],
+    action: () => Promise<void>,
+    errorMessage: string,
+  ) {
+    let previous: ShoppingList["products"] | undefined
+    setList((prev) => {
+      previous = prev.products
+      return { ...prev, products: optimistic(prev.products) }
+    })
     try {
-      await toggleProductChecked(listId, productId, !current)
+      await action()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error al guardar")
+      const rollback = previous
+      if (rollback) setList((prev) => ({ ...prev, products: rollback }))
+      toast.error(err instanceof Error ? err.message : errorMessage)
     }
   }
 
-  async function handleQuantityChange(productId: string, delta: number) {
-    try {
-      await updateProductQuantity(listId, productId, delta)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error al actualizar cantidad")
-    }
+  function handleToggleChecked(productId: string, current: boolean) {
+    return runOptimistic(
+      (products) =>
+        products.map((p) =>
+          p.productId === productId ? { ...p, checked: !current } : p,
+        ),
+      () => toggleProductChecked(listId, productId, !current),
+      "Error al guardar",
+    )
   }
 
-  async function handleRemove(productId: string) {
-    try {
-      await removeProductFromList(listId, productId)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error al eliminar producto")
-    }
+  function handleQuantityChange(productId: string, delta: number) {
+    return runOptimistic(
+      (products) =>
+        products.map((p) =>
+          p.productId === productId
+            ? { ...p, quantity: Math.max(1, p.quantity + delta) }
+            : p,
+        ),
+      () => updateProductQuantity(listId, productId, delta),
+      "Error al actualizar cantidad",
+    )
+  }
+
+  function handleRemove(productId: string) {
+    return runOptimistic(
+      (products) => products.filter((p) => p.productId !== productId),
+      () => removeProductFromList(listId, productId),
+      "Error al eliminar producto",
+    )
   }
 
   useEffect(() => {
