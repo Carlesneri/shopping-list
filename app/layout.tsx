@@ -85,6 +85,13 @@ export default function RootLayout({
       lang="es"
       className={`${nunito.variable} ${jetbrainsMono.variable} h-full`}
     >
+      <head>
+        <script
+          src="https://analytics.ahrefs.com/analytics.js"
+          data-key="s1D9H51WmjuN6VSMCmHPEQ"
+          async
+        />
+      </head>
       <body className="min-h-full flex flex-col font-sans antialiased">
         <SessionProvider>
           <FirebaseAuthProvider>
