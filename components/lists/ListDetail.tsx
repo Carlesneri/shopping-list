@@ -163,9 +163,9 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
           <p className="text-text/50 text-sm mt-0.5">{list.market}</p>
         </div>
         <div className="flex items-center gap-2">
-          <ShareButton path={`/lists/${listId}`} color="blue" />
+          <ShareButton path={`/compras/${listId}`} color="blue" />
           {canShare && (
-            <Link href={`/lists/${listId}/settings`}>
+            <Link href={`/compras/${listId}/ajustes`}>
               <FabButton type="button" color="orange" size="sm">
                 <IconSettings size={18} />
               </FabButton>

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest"
 import { shareUrl } from "../share"
 
-const url = "https://compale.app/lists/abc"
+const url = "https://compale.app/compras/abc"
 
 describe("shareUrl", () => {
   it("uses the Web Share API when available", async () => {

@@ -52,7 +52,7 @@ export default async function ListSettingsPage({ params }: Props) {
   return (
     <div className="px-4 py-6 max-w-lg mx-auto w-full">
       <Link
-        href={`/lists/${id}`}
+        href={`/compras/${id}`}
         className="flex items-center gap-1 text-text/60 mb-6 hover:text-text transition-colors"
       >
         <IconArrowLeft size={18} />
@@ -62,7 +62,7 @@ export default async function ListSettingsPage({ params }: Props) {
         <h1 className="text-2xl font-bold">
           Ajustes &ldquo;{list.title}&rdquo;
         </h1>
-        <ShareButton path={`/lists/${id}`} color="blue" />
+        <ShareButton path={`/compras/${id}`} color="blue" />
       </div>
       {isOwner && (
         <div className="mb-8 pb-6 border-b border-black/10">

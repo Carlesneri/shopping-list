@@ -67,7 +67,7 @@ export function ListGrid({ userEmail }: { userEmail: string }) {
       <div className="flex flex-col items-center gap-3 py-8 text-center">
         <p className="text-text/60">Aún no tienes ninguna lista.</p>
         <Link
-          href="/lists/new"
+          href="/compras/nueva-lista"
           className="font-bold text-purple underline underline-offset-4 hover:text-purple/80"
         >
           Crea tu primera lista

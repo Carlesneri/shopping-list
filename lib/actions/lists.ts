@@ -33,7 +33,7 @@ export async function createList(formData: FormData) {
     updatedAt: FieldValue.serverTimestamp(),
   })
 
-  redirect(`/lists/${docRef.id}`)
+  redirect(`/compras/${docRef.id}`)
 }
 
 export async function addUserToList(listId: string, email: string, role: Role) {
@@ -63,7 +63,7 @@ export async function addUserToList(listId: string, email: string, role: Role) {
     updatedAt: FieldValue.serverTimestamp(),
   })
 
-  revalidatePath(`/lists/${listId}/settings`)
+  revalidatePath(`/compras/${listId}/ajustes`)
 }
 
 export async function removeUserFromList(listId: string, email: string) {
@@ -98,7 +98,7 @@ export async function removeUserFromList(listId: string, email: string) {
     updatedAt: FieldValue.serverTimestamp(),
   })
 
-  revalidatePath(`/lists/${listId}/settings`)
+  revalidatePath(`/compras/${listId}/ajustes`)
 }
 
 export async function renameList(listId: string, title: string) {
@@ -120,8 +120,8 @@ export async function renameList(listId: string, title: string) {
   if (caller?.role !== "owner") throw new Error("Solo el propietario puede renombrar la lista")
 
   await listRef.update({ title: trimmed, updatedAt: FieldValue.serverTimestamp() })
-  revalidatePath(`/lists/${listId}`)
-  revalidatePath(`/lists/${listId}/settings`)
+  revalidatePath(`/compras/${listId}`)
+  revalidatePath(`/compras/${listId}/ajustes`)
 }
 
 export async function deleteList(listId: string) {

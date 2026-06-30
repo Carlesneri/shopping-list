@@ -47,7 +47,7 @@ export async function addProductToList(
     updatedAt: FieldValue.serverTimestamp(),
   })
 
-  revalidatePath(`/lists/${listId}`)
+  revalidatePath(`/compras/${listId}`)
 }
 
 export async function removeProductFromList(listId: string, productId: string) {
@@ -70,7 +70,7 @@ export async function removeProductFromList(listId: string, productId: string) {
     })
   })
 
-  revalidatePath(`/lists/${listId}`)
+  revalidatePath(`/compras/${listId}`)
 }
 
 export async function toggleProductChecked(listId: string, productId: string, checked: boolean) {
@@ -93,7 +93,7 @@ export async function toggleProductChecked(listId: string, productId: string, ch
     })
   })
 
-  revalidatePath(`/lists/${listId}`)
+  revalidatePath(`/compras/${listId}`)
 }
 
 export async function updateProductQuantity(
@@ -122,6 +122,6 @@ export async function updateProductQuantity(
     tx.update(listRef, { products: updated, updatedAt: FieldValue.serverTimestamp() })
   })
 
-  revalidatePath(`/lists/${listId}`)
+  revalidatePath(`/compras/${listId}`)
 }
 

@@ -1,4 +1,4 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from "next"
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
@@ -10,6 +10,20 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-};
+  async redirects() {
+    return [
+      {
+        source: "/lists",
+        destination: "/compras",
+        permanent: true,
+      },
+      {
+        source: "/lists/:path*",
+        destination: "/compras/:path*",
+        permanent: true,
+      },
+    ]
+  },
+}
 
-export default nextConfig;
+export default nextConfig

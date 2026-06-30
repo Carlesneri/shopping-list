@@ -19,7 +19,7 @@ export default async function HomePage() {
             </h2>
           )}
           {session.user?.email && <ListGrid userEmail={session.user?.email} />}
-          <Link href="/lists/new" className="fixed bottom-6 right-6">
+          <Link href="/compras/nueva-lista" className="fixed bottom-6 right-6">
             <FabButton type="button" color="purple">
               <IconPlus size={28} />
             </FabButton>

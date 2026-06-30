@@ -9,7 +9,7 @@ describe("robots", () => {
     const rules = Array.isArray(result.rules) ? result.rules[0] : result.rules
     expect(rules?.allow).toBe("/")
     expect(rules?.disallow).toEqual(
-      expect.arrayContaining(["/lists/", "/api/"]),
+      expect.arrayContaining(["/compras/", "/api/"]),
     )
   })
 
