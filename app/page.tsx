@@ -2,9 +2,6 @@ import Image from "next/image"
 import Link from "next/link"
 import { auth, signIn } from "@/auth"
 import { Button } from "@/components/ui/Button"
-import { FabButton } from "@/components/ui/FabButton"
-import { ListGrid } from "@/components/lists/ListGrid"
-import { IconPlus } from "@tabler/icons-react"
 
 export default async function HomePage() {
   const session = await auth()
@@ -18,11 +15,8 @@ export default async function HomePage() {
               Hola, {session.user.name}
             </h2>
           )}
-          {session.user?.email && <ListGrid userEmail={session.user?.email} />}
-          <Link href="/compras/nueva-lista" className="fixed bottom-6 right-6">
-            <FabButton type="button" color="purple">
-              <IconPlus size={28} />
-            </FabButton>
+          <Link href="/compras">
+            <Button variant="secondary">Ver mis compras</Button>
           </Link>
         </div>
       ) : (
