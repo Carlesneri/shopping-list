@@ -131,8 +131,7 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
             products: data.products ?? [],
           } as ShoppingList)
         },
-        (error) => {
-          console.error("[ListDetail] Error al cargar la lista:", error)
+        () => {
           toast.error("Error al cargar la lista")
           router.push("/")
         },
