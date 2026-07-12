@@ -43,7 +43,8 @@ export function ListGrid({ userEmail }: { userEmail: string }) {
           setLists(docs)
           setLoading(false)
         },
-        () => {
+        (error) => {
+          console.error("[ListGrid] Error al cargar las listas:", error)
           toast.error("Error al cargar las listas")
           setLoading(false)
         },
