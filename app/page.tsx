@@ -16,7 +16,7 @@ export default async function HomePage() {
             </h2>
           )}
           <Link href="/compras">
-            <Button variant="secondary">Ver mis compras</Button>
+            <Button variant="secondary">Ver mis listas</Button>
           </Link>
         </div>
       ) : (
