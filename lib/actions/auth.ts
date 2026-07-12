@@ -10,7 +10,7 @@ export async function getFirebaseToken(): Promise<string | null> {
 
   const uid = crypto.createHash("sha256").update(session.user.email).digest("hex")
   const token = await getAuth(getAdminApp()).createCustomToken(uid, {
-    email: session.user.email,
+    userEmail: session.user.email,
   })
   return token
 }
