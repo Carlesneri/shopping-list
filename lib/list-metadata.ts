@@ -1,4 +1,4 @@
-import type { ShoppingList } from "./types"
+import type { ShoppingList, Nota } from "./types"
 
 type ListMetadataInput = Pick<ShoppingList, "title" | "market" | "products">
 
@@ -13,5 +13,19 @@ export function buildListMetadata({ title, market }: ListMetadataInput): {
   return {
     title,
     description: `Lista de la compra colaborativa en ${market}`,
+  }
+}
+
+/**
+ * Builds Open Graph title and description for a nota, used by link-preview
+ * unfurls when a nota URL is shared.
+ */
+export function buildNotaMetadata({ title }: Pick<Nota, "title">): {
+  title: string
+  description: string
+} {
+  return {
+    title,
+    description: `Nota colaborativa: ${title}`,
   }
 }

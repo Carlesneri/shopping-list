@@ -6,11 +6,20 @@ import { renameList } from "@/lib/actions/lists"
 import { Button } from "@/components/ui/Button"
 
 interface Props {
-  listId: string
+  id: string
   currentTitle: string
+  renameAction?: (id: string, title: string) => Promise<void>
+  label?: string
+  successMessage?: string
 }
 
-export function RenameListForm({ listId, currentTitle }: Props) {
+export function RenameListForm({
+  id,
+  currentTitle,
+  renameAction = renameList,
+  label = "Nombre de la lista",
+  successMessage = "Nombre actualizado",
+}: Props) {
   const [title, setTitle] = useState(currentTitle)
   const [loading, setLoading] = useState(false)
 
@@ -19,8 +28,8 @@ export function RenameListForm({ listId, currentTitle }: Props) {
     if (title.trim() === currentTitle) return
     setLoading(true)
     try {
-      await renameList(listId, title)
-      toast.success("Nombre actualizado")
+      await renameAction(id, title)
+      toast.success(successMessage)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error al renombrar")
     } finally {
@@ -30,7 +39,7 @@ export function RenameListForm({ listId, currentTitle }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-      <label className="font-bold text-sm text-text/70">Nombre de la lista</label>
+      <label className="font-bold text-sm text-text/70">{label}</label>
       <div className="flex gap-2">
         <input
           type="text"

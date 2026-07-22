@@ -306,7 +306,7 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "COMPALE",
-  description: "Tu lista de la compra colaborativa",
+  description: "Tu app colaborativa",
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -700,7 +700,7 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "COMPALE",
-  description: "Tu lista de la compra colaborativa",
+  description: "Tu app colaborativa",
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

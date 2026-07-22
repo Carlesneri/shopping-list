@@ -18,7 +18,7 @@ const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
 })
 
-const title = "COMPALE — Tu lista de la compra colaborativa"
+const title = "COMPALE — Tu app colaborativa"
 const description =
   "Crea y comparte listas de la compra en tiempo real con quien quieras. Colaborativo, sencillo y siempre sincronizado."
 

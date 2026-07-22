@@ -6,7 +6,17 @@ import { addUserToList } from "@/lib/actions/lists"
 import { Button } from "@/components/ui/Button"
 import type { Role } from "@/lib/types"
 
-export function AddUserForm({ listId }: { listId: string }) {
+interface Props {
+  id: string
+  addUserAction?: (id: string, email: string, role: Role) => Promise<void>
+  successMessage?: string
+}
+
+export function AddUserForm({
+  id,
+  addUserAction = addUserToList,
+  successMessage = "Usuario añadido",
+}: Props) {
   const [email, setEmail] = useState("")
   const [role, setRole] = useState<Role>("member")
   const [loading, setLoading] = useState(false)
@@ -15,11 +25,13 @@ export function AddUserForm({ listId }: { listId: string }) {
     e.preventDefault()
     setLoading(true)
     try {
-      await addUserToList(listId, email, role)
+      await addUserAction(id, email, role)
       setEmail("")
-      toast.success("Usuario añadido")
+      toast.success(successMessage)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error al añadir usuario")
+      toast.error(
+        err instanceof Error ? err.message : "Error al añadir usuario",
+      )
     } finally {
       setLoading(false)
     }

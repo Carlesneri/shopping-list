@@ -43,7 +43,7 @@ robots/sitemap/manifest, and the private pages are not marked `noindex`.
 Expand the existing `metadata` export and add a `viewport` export:
 
 - `metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000")`
-- `title: { default: "COMPALE — Tu lista de la compra colaborativa", template: "%s · COMPALE" }`
+- `title: { default: "COMPALE — Tu app colaborativa", template: "%s · COMPALE" }`
 - `applicationName: "COMPALE"`, richer `description`, `keywords`.
 - `openGraph`: `type: "website"`, `locale: "es_ES"`, `siteName: "COMPALE"`,
   `url: "/"`, title/description, `images: [{ url: "/compale.png", width: 677,
@@ -66,7 +66,7 @@ metadata merge applies it to all `/lists/*` routes (`[id]`, `[id]/settings`,
 - `app/robots.ts` — `rules: { userAgent: "*", allow: "/", disallow: ["/lists/", "/api/"] }`,
   `sitemap: "<base>/sitemap.xml"` using `NEXT_PUBLIC_APP_URL`.
 - `app/sitemap.ts` — single entry for `/` (the public landing).
-- `app/manifest.ts` — `name: "COMPALE — Tu lista de la compra colaborativa"`,
+- `app/manifest.ts` — `name: "COMPALE — Tu app colaborativa"`,
   `short_name: "COMPALE"`, `description`, `start_url: "/"`, `display: "standalone"`,
   `lang: "es"`, `background_color: "#ffffff"`, `theme_color: "#58cc02"`,
   `icons` referencing square PWA icons named by size: `/icon-192.png` (192×192)

@@ -15,9 +15,14 @@ export default async function HomePage() {
               Hola, {session.user.name}
             </h2>
           )}
-          <Link href="/compras">
-            <Button variant="secondary">Ver mis listas</Button>
-          </Link>
+          <div className="flex flex-col gap-3 items-center">
+            <Link href="/compras">
+              <Button variant="secondary">Ver mis listas</Button>
+            </Link>
+            <Link href="/notas">
+              <Button variant="purple">Mis notas</Button>
+            </Link>
+          </div>
         </div>
       ) : (
         <form
@@ -42,7 +47,7 @@ export default async function HomePage() {
       />
       <h1>
         <span className="text-lg font-semibold text-gray-600">
-          Tu lista de la compra colaborativa
+          Tu app colaborativa
         </span>
       </h1>
     </div>

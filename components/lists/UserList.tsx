@@ -1,5 +1,5 @@
 import { removeUserFromList } from "@/lib/actions/lists"
-import type { ShoppingList } from "@/lib/types"
+import type { ShareableDoc } from "@/lib/types"
 import { IconTrash } from "@tabler/icons-react"
 
 const ROLE_LABELS: Record<string, string> = {
@@ -15,15 +15,21 @@ const ROLE_COLORS: Record<string, string> = {
 }
 
 interface Props {
-  list: ShoppingList
+  doc: ShareableDoc
   currentUserEmail: string
   canManage: boolean
+  removeUserAction?: (id: string, email: string) => Promise<void>
 }
 
-export function UserList({ list, currentUserEmail, canManage }: Props) {
+export function UserList({
+  doc,
+  currentUserEmail,
+  canManage,
+  removeUserAction = removeUserFromList,
+}: Props) {
   return (
     <ul className="flex flex-col gap-2 mb-6">
-      {list.allowedUsers.map((user) => (
+      {doc.allowedUsers.map((user) => (
         <li
           key={user.email}
           className="flex items-center justify-between gap-2 p-3 rounded-md border-2 border-black/10"
@@ -36,17 +42,19 @@ export function UserList({ list, currentUserEmail, canManage }: Props) {
               {ROLE_LABELS[user.role]}
             </span>
           </div>
-          {canManage && user.role !== "owner" && user.email !== currentUserEmail && (
-            <form action={removeUserFromList.bind(null, list.id, user.email)}>
-              <button
-                type="submit"
-                className="text-danger hover:opacity-70 transition-opacity"
-                aria-label="Eliminar usuario"
-              >
-                <IconTrash size={18} />
-              </button>
-            </form>
-          )}
+          {canManage &&
+            user.role !== "owner" &&
+            user.email !== currentUserEmail && (
+              <form action={removeUserAction.bind(null, doc.id, user.email)}>
+                <button
+                  type="submit"
+                  className="text-danger hover:opacity-70 transition-opacity"
+                  aria-label="Eliminar usuario"
+                >
+                  <IconTrash size={18} />
+                </button>
+              </form>
+            )}
         </li>
       ))}
     </ul>

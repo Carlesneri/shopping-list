@@ -2,10 +2,10 @@ import type { MetadataRoute } from "next"
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "COMPALE — Tu lista de la compra colaborativa",
+    name: "COMPALE — Tu app colaborativa",
     short_name: "COMPALE",
     description:
-      "Tu lista de la compra colaborativa, en tiempo real y compartida.",
+      "Tu app colaborativa, en tiempo real y compartida.",
     start_url: "/",
     display: "standalone",
     lang: "es",
