@@ -23,7 +23,7 @@ export function CreateNotaForm({ onClose }: { onClose?: () => void }) {
     const formData = new FormData(event.currentTarget)
 
     try {
-      await createNota(formData, false)
+      await createNota(formData)
       if (onClose) {
         onClose()
       } else {
