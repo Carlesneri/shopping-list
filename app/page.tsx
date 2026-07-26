@@ -16,11 +16,15 @@ export default async function HomePage() {
             </h2>
           )}
           <div className="flex flex-col gap-3 items-center">
-            <Link href="/compras">
-              <Button variant="secondary">Ver mis listas</Button>
+            <Link href="/compras" className="w-full">
+              <Button variant="secondary" className="w-full">
+                Ver mis listas
+              </Button>
             </Link>
-            <Link href="/notas">
-              <Button variant="orange">Mis notas</Button>
+            <Link href="/notas" className="w-full">
+              <Button variant="orange" className="w-full">
+                Mis notas
+              </Button>
             </Link>
           </div>
         </div>

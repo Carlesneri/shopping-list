@@ -4,11 +4,8 @@ import { ShareButton } from "@/components/ui/ShareButton"
 import type { Nota } from "@/lib/types"
 
 export function NotaCard({ nota }: { nota: Nota }) {
-  const preview = nota.text?.trim()
-    ? nota.text.trim().slice(0, 80)
-    : "Sin contenido"
-
   const title = nota.title?.trim() || "Nota sin título"
+  const content = nota.text?.trim() || "Sin contenido"
 
   return (
     <Link href={`/notas/${nota.id}`}>
@@ -17,8 +14,8 @@ export function NotaCard({ nota }: { nota: Nota }) {
           <ShareButton path={`/notas/${nota.id}`} variant="plain" />
         </div>
         <h2 className="font-bold text-lg leading-tight pr-12">{title}</h2>
-        <p className="text-text/60 text-sm leading-snug line-clamp-2 mt-0.5">
-          {preview}
+        <p className="text-text/60 text-sm leading-snug line-clamp-3 mt-0.5 text-start whitespace-pre-wrap wrap-break-words">
+          {content}
         </p>
         <div className="flex items-center gap-1 text-text/60 text-sm mt-1">
           <IconUsers size={14} />
