@@ -10,7 +10,13 @@ import type { Nota } from "@/lib/types"
 import { Loader } from "@/components/ui/Loader"
 import { NotaCard } from "./NotaCard"
 
-export function NotasGrid({ userEmail }: { userEmail: string }) {
+export function NotasGrid({
+  userEmail,
+  onCreateClick,
+}: {
+  userEmail: string
+  onCreateClick?: () => void
+}) {
   const [notas, setNotas] = useState<Nota[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -64,12 +70,22 @@ export function NotasGrid({ userEmail }: { userEmail: string }) {
     return (
       <div className="flex flex-col items-center gap-3 py-8 text-center">
         <p className="text-text/60">Aún no tienes ninguna nota.</p>
-        <Link
-          href="/notas/nueva-nota"
-          className="font-bold text-purple underline underline-offset-4 hover:text-purple/80"
-        >
-          Crea tu primera nota
-        </Link>
+        {onCreateClick ? (
+          <button
+            type="button"
+            onClick={onCreateClick}
+            className="font-bold text-orange underline underline-offset-4 hover:text-orange/80"
+          >
+            Crea tu primera nota
+          </button>
+        ) : (
+          <Link
+            href="/notas/nueva-nota"
+            className="font-bold text-orange underline underline-offset-4 hover:text-orange/80"
+          >
+            Crea tu primera nota
+          </Link>
+        )}
       </div>
     )
   }

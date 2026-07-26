@@ -12,7 +12,16 @@ export async function createNota(formData: FormData) {
   const session = await auth()
   if (!session?.user?.email) throw new Error("No autenticado")
 
-  const { title } = validateNotaInput(formData.get("title") as string)
+  const titleValue = formData.get("title")
+  const textValue = formData.get("text")
+  const stayValue = formData.get("stay")
+  const { title } = validateNotaInput(
+    typeof titleValue === "string" ? titleValue : "",
+  )
+  const text = typeof textValue === "string" ? textValue.trim() : ""
+  const stay = stayValue === "1"
+
+  if (!title && !text) throw new Error("El título o el contenido son requeridos")
 
   const db = getDB()
 
@@ -22,14 +31,16 @@ export async function createNota(formData: FormData) {
 
   await docRef.set({
     title,
-    text: "",
+    text,
     allowedUsers: [{ email, role: "owner" as Role }],
     memberEmails: [email],
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
   })
 
-  redirect(`/notas/${docRef.id}`)
+  if (!stay) {
+    redirect(`/notas/${docRef.id}`)
+  }
 }
 
 export async function addUserToNota(notaId: string, email: string, role: Role) {
@@ -161,5 +172,5 @@ export async function deleteNota(notaId: string) {
     throw new Error("Solo el propietario puede eliminar la nota")
 
   await notaRef.delete()
-  redirect("/")
+  redirect("/notas")
 }

@@ -24,8 +24,9 @@ export function buildNotaMetadata({ title }: Pick<Nota, "title">): {
   title: string
   description: string
 } {
+  const label = title.trim() || "Nota colaborativa"
   return {
-    title,
-    description: `Nota colaborativa: ${title}`,
+    title: label,
+    description: `Nota colaborativa${title.trim() ? `: ${title.trim()}` : ""}`,
   }
 }

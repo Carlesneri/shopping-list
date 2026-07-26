@@ -23,11 +23,24 @@ export default function NewNotaPage() {
             id="title"
             name="title"
             type="text"
-            required
-            placeholder="Lista de ideas"
+            placeholder="Ideas para la cena"
             className="border-2 border-black rounded-md px-3 py-2 font-sans focus:outline-none focus:border-primary"
           />
         </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="font-semibold text-sm" htmlFor="text">
+            Texto
+          </label>
+          <textarea
+            id="text"
+            name="text"
+            rows={6}
+            placeholder="Escribe aquí tu nota..."
+            className="min-h-[140px] resize-y border-2 border-black rounded-md px-3 py-2 font-sans focus:outline-none focus:border-primary"
+          />
+        </div>
+
         <Button type="submit" className="mt-2">
           Crear nota
         </Button>

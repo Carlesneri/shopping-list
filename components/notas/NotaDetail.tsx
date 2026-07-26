@@ -120,6 +120,8 @@ export function NotaDetail({ initialNota, userEmail, notaId }: Props) {
   const userEntry = initialNota.allowedUsers.find((u) => u.email === userEmail)
   const canShare = userEntry?.role === "owner" || userEntry?.role === "admin"
 
+  const title = initialNota.title?.trim() || "Nota sin título"
+
   return (
     <div className="px-4 py-6 max-w-lg mx-auto w-full">
       <Link
@@ -131,9 +133,7 @@ export function NotaDetail({ initialNota, userEmail, notaId }: Props) {
       </Link>
 
       <div className="flex items-start justify-between mb-6">
-        <h1 className="text-2xl font-bold leading-tight">
-          {initialNota.title}
-        </h1>
+        <h1 className="text-2xl font-bold leading-tight">{title}</h1>
         <div className="flex items-center gap-2">
           <ShareButton path={`/notas/${notaId}`} color="blue" />
           {canShare && (

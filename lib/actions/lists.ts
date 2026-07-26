@@ -142,5 +142,5 @@ export async function deleteList(listId: string) {
     throw new Error("Solo el propietario puede eliminar la lista")
 
   await listRef.delete()
-  redirect("/")
+  redirect("/compras")
 }

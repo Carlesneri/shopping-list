@@ -20,7 +20,7 @@ const getNota = cache(async (id: string): Promise<Nota | null> => {
 
   return {
     id: snap.id,
-    title: data.title,
+    title: data.title ?? "",
     text: data.text ?? "",
     allowedUsers: data.allowedUsers,
     memberEmails: data.memberEmails,

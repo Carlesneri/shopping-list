@@ -37,7 +37,7 @@ export default async function NotaSettingsPage({ params }: Props) {
 
   const nota: Nota = {
     id: snap.id,
-    title: data.title,
+    title: data.title ?? "",
     text: data.text ?? "",
     allowedUsers: data.allowedUsers,
     memberEmails: data.memberEmails,
@@ -64,7 +64,7 @@ export default async function NotaSettingsPage({ params }: Props) {
       </Link>
       <div className="flex items-start justify-between gap-3 mb-6">
         <h1 className="text-2xl font-bold">
-          Ajustes &ldquo;{nota.title}&rdquo;
+          Ajustes &ldquo;{nota.title || "Sin título"}&rdquo;
         </h1>
         <ShareButton path={`/notas/${id}`} color="blue" />
       </div>

@@ -12,9 +12,7 @@ export default async function ComprasPage() {
   return (
     <div className="flex flex-col items-center justify-center gap-8 px-4 py-16 text-center">
       <div className="max-w-lg mx-auto w-full">
-        {session.user.name && (
-          <h2 className="text-2xl font-bold mb-6">Hola, {session.user.name}</h2>
-        )}
+        <h1 className="text-3xl font-bold mb-3">Compras</h1>
         <ListGrid userEmail={session.user.email} />
         <Link href="/compras/nueva-lista" className="fixed bottom-6 right-6">
           <FabButton type="button" color="purple">

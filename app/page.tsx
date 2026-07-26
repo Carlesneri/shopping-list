@@ -20,7 +20,7 @@ export default async function HomePage() {
               <Button variant="secondary">Ver mis listas</Button>
             </Link>
             <Link href="/notas">
-              <Button variant="purple">Mis notas</Button>
+              <Button variant="orange">Mis notas</Button>
             </Link>
           </div>
         </div>

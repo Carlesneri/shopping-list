@@ -5,6 +5,5 @@ export function validateListInput(title: string, market: string) {
 }
 
 export function validateNotaInput(title: string) {
-  if (!title.trim()) throw new Error("El título es requerido")
   return { title: title.trim() }
 }
