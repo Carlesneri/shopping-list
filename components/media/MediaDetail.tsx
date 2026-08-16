@@ -2,20 +2,11 @@ import Link from "next/link"
 import { IconSettings, IconArrowLeft } from "@tabler/icons-react"
 import { FabButton } from "@/components/ui/FabButton"
 import { ShareButton } from "@/components/ui/ShareButton"
-import { PROVIDER_LABELS, type MediaStorage } from "@/lib/types"
+import type { MediaStorage } from "@/lib/types"
 
 interface Props {
   media: MediaStorage
   userEmail: string
-}
-
-function ConfigRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-3 p-3 rounded-md border-2 border-black/10">
-      <span className="text-text/60 text-sm">{label}</span>
-      <span className="font-mono text-sm font-semibold truncate">{value}</span>
-    </div>
-  )
 }
 
 export function MediaDetail({ media, userEmail }: Props) {
@@ -46,18 +37,6 @@ export function MediaDetail({ media, userEmail }: Props) {
             </Link>
           )}
         </div>
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <ConfigRow
-          label="Nombre"
-          value={title}
-        />
-        <ConfigRow
-          label="Proveedor"
-          value={PROVIDER_LABELS[media.provider] ?? media.provider}
-        />
-        <ConfigRow label="Bucket" value={media.config.bucket} />
       </div>
     </div>
   )

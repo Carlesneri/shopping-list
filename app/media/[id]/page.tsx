@@ -2,9 +2,9 @@ import type { Metadata } from "next"
 import { cache } from "react"
 import { auth } from "@/auth"
 import { redirect } from "next/navigation"
-import { IconFile, IconFolder } from "@tabler/icons-react"
 import { getDB } from "@/lib/firebase-admin"
 import { MediaDetail } from "@/components/media/MediaDetail"
+import { MediaFileList } from "@/components/media/MediaFileList"
 import { listMediaStorageEntries } from "@/lib/actions/media"
 import type { MediaStorage } from "@/lib/types"
 
@@ -84,32 +84,7 @@ export default async function MediaStoragePage({ params }: Props) {
             Este bucket está vacío o no se pudo cargar su contenido.
           </p>
         ) : (
-          <ul className="flex flex-col gap-2">
-            {entries.map((entry) => (
-              <li
-                key={entry.key}
-                className="flex items-center justify-between gap-3 rounded-md border border-black/10 bg-white px-3 py-2 text-sm"
-              >
-                <div className="flex min-w-0 items-center gap-2">
-                  {entry.type === "folder" ? (
-                    <IconFolder size={18} className="text-violet-600" />
-                  ) : (
-                    <IconFile size={18} className="text-text/70" />
-                  )}
-                  <span className="truncate font-medium">{entry.name}</span>
-                </div>
-                {entry.type === "file" && entry.size !== undefined ? (
-                  <span className="shrink-0 text-xs text-text/50">
-                    {entry.size >= 1024 * 1024
-                      ? `${(entry.size / (1024 * 1024)).toFixed(1)} MB`
-                      : entry.size >= 1024
-                        ? `${(entry.size / 1024).toFixed(1)} KB`
-                        : `${entry.size} B`}
-                  </span>
-                ) : null}
-              </li>
-            ))}
-          </ul>
+          <MediaFileList entries={entries} />
         )}
       </div>
     </div>

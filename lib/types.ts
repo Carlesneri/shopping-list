@@ -75,10 +75,13 @@ export interface MediaStorage {
 
 export type StorageEntryType = "file" | "folder"
 
+export type MediaKind = "video" | "image" | "audio"
+
 export interface StorageEntry {
   key: string
   name: string
   type: StorageEntryType
+  mediaKind?: MediaKind
   size?: number
   lastModified?: Date
 }

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import { MediaDetail } from "./MediaDetail"
 
 describe("MediaDetail", () => {
-  it("shows only the title, provider, and bucket for a storage", () => {
+  it("shows only the title and actions for a storage", () => {
     render(
       <MediaDetail
         media={{
@@ -25,10 +25,12 @@ describe("MediaDetail", () => {
       />,
     )
 
-    expect(screen.getByRole("heading", { name: "Mi storage" })).toBeInTheDocument()
-    expect(screen.getByText("Cloudflare R2")).toBeInTheDocument()
-    expect(screen.getByText("mi-bucket")).toBeInTheDocument()
+    expect(
+      screen.getByRole("heading", { name: "Mi storage" }),
+    ).toBeInTheDocument()
 
+    expect(screen.queryByText("Cloudflare R2")).not.toBeInTheDocument()
+    expect(screen.queryByText("mi-bucket")).not.toBeInTheDocument()
     expect(screen.queryByText("Account ID")).not.toBeInTheDocument()
     expect(screen.queryByText("Access Key ID")).not.toBeInTheDocument()
     expect(screen.queryByText("Secret Access Key")).not.toBeInTheDocument()

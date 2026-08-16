@@ -11,7 +11,18 @@ import {
   validateMediaConfigUpdate,
 } from "@/lib/list-validation"
 import { decryptSecret, encryptSecret } from "@/lib/crypto"
-import type { AllowedUser, Role, StorageEntry } from "@/lib/types"
+import type { AllowedUser, MediaKind, Role, StorageEntry } from "@/lib/types"
+
+function detectMediaKind(key: string): MediaKind | undefined {
+  const ext = key.split(".").at(-1)?.toLowerCase() ?? ""
+  if (["mp4", "mov", "webm", "mkv", "avi", "m4v", "mpeg", "mpg"].includes(ext))
+    return "video"
+  if (["jpg", "jpeg", "png", "gif", "webp", "heic", "heif", "avif", "svg", "bmp"].includes(ext))
+    return "image"
+  if (["mp3", "wav", "ogg", "aac", "flac", "m4a", "opus", "wma"].includes(ext))
+    return "audio"
+  return undefined
+}
 
 function normalizeR2Endpoint(value?: string) {
   if (!value) return ""
@@ -162,12 +173,6 @@ export async function listMediaStorageEntries(
       { abortSignal: AbortSignal.timeout(15_000) },
     )
 
-    console.log(
-      `[media:list] bucket ${bucket} prefix ${prefix || "/"} returned ${
-        (response.Contents ?? []).length
-      } files and ${(response.CommonPrefixes ?? []).length} folders`,
-    )
-
     const folders = (response.CommonPrefixes ?? [])
     .map((item) => item.Prefix ?? "")
     .filter(Boolean)
@@ -189,6 +194,7 @@ export async function listMediaStorageEntries(
         key,
         name,
         type: "file" as const,
+        mediaKind: detectMediaKind(key),
         size: item.Size ?? 0,
         lastModified: item.LastModified ? new Date(item.LastModified) : undefined,
       }
