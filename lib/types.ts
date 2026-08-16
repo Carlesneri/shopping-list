@@ -59,6 +59,7 @@ export interface R2Config {
   accessKeyId: string
   bucket: string
   secretEnc: string
+  S3APIendpoint?: string
 }
 
 export interface MediaStorage {
@@ -70,4 +71,14 @@ export interface MediaStorage {
   config: R2Config
   createdAt: { seconds: number; nanoseconds: number }
   updatedAt: { seconds: number; nanoseconds: number }
+}
+
+export type StorageEntryType = "file" | "folder"
+
+export interface StorageEntry {
+  key: string
+  name: string
+  type: StorageEntryType
+  size?: number
+  lastModified?: Date
 }

@@ -93,6 +93,7 @@ export default async function MediaSettingsPage({ params }: Props) {
             accountId: media.config.accountId,
             accessKeyId: media.config.accessKeyId,
             bucket: media.config.bucket,
+            s3ApiEndpoint: config.S3APIendpoint ?? "",
           }}
         />
       ) : (

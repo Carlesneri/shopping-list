@@ -11,6 +11,7 @@ interface Props {
     accountId: string
     accessKeyId: string
     bucket: string
+    s3ApiEndpoint?: string
   }
 }
 
@@ -22,10 +23,11 @@ export function StorageConfigForm({ mediaId, config }: Props) {
   const [accessKeyId, setAccessKeyId] = useState(config.accessKeyId)
   const [secretAccessKey, setSecretAccessKey] = useState("")
   const [bucket, setBucket] = useState(config.bucket)
+  const [s3ApiEndpoint, setS3ApiEndpoint] = useState(config.s3ApiEndpoint ?? "")
   const [loading, setLoading] = useState(false)
 
   const isSubmitDisabled =
-    loading || !accountId.trim() || !accessKeyId.trim() || !bucket.trim()
+    loading || !accountId.trim() || !accessKeyId.trim() || !bucket.trim() || !s3ApiEndpoint.trim()
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -39,6 +41,7 @@ export function StorageConfigForm({ mediaId, config }: Props) {
         accessKeyId,
         secretAccessKey,
         bucket,
+        s3ApiEndpoint,
       )
       setSecretAccessKey("")
       toast.success("Configuración actualizada")
@@ -112,6 +115,18 @@ export function StorageConfigForm({ mediaId, config }: Props) {
           type="text"
           value={bucket}
           onChange={(event) => setBucket(event.target.value)}
+          className={inputClass}
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <label className="font-semibold text-sm" htmlFor="settings-s3ApiEndpoint">
+          Endpoint R2
+        </label>
+        <input
+          id="settings-s3ApiEndpoint"
+          type="url"
+          value={s3ApiEndpoint}
+          onChange={(event) => setS3ApiEndpoint(event.target.value)}
           className={inputClass}
         />
       </div>

@@ -4,13 +4,35 @@ import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import { FieldValue } from "firebase-admin/firestore"
 import { revalidatePath } from "next/cache"
+import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3"
 import { getDB } from "@/lib/firebase-admin"
 import {
   validateMediaInput,
   validateMediaConfigUpdate,
 } from "@/lib/list-validation"
-import { encryptSecret } from "@/lib/crypto"
-import type { AllowedUser, Role } from "@/lib/types"
+import { decryptSecret, encryptSecret } from "@/lib/crypto"
+import type { AllowedUser, Role, StorageEntry } from "@/lib/types"
+
+function normalizeR2Endpoint(value?: string) {
+  if (!value) return ""
+
+  const trimmed = value.trim().replace(/\/+$/, "")
+  if (!trimmed) return ""
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed
+  }
+
+  if (trimmed.includes(".r2.cloudflarestorage.com")) {
+    return `https://${trimmed.replace(/^https?:\/\//i, "")}`
+  }
+
+  if (trimmed.includes(".cloudflarestorage.com")) {
+    return `https://${trimmed.replace(/^https?:\/\//i, "")}`
+  }
+
+  return `https://${trimmed}.r2.cloudflarestorage.com`
+}
 
 export async function createMediaStorage(formData: FormData) {
   const session = await auth()
@@ -38,6 +60,12 @@ export async function createMediaStorage(formData: FormData) {
         : "",
     )
 
+  const s3ApiEndpoint = normalizeR2Endpoint(
+    typeof formData.get("S3APIendpoint") === "string"
+      ? (formData.get("S3APIendpoint") as string)
+      : "",
+  )
+
   const stayValue = formData.get("stay")
   const stay = stayValue === "1"
 
@@ -54,6 +82,7 @@ export async function createMediaStorage(formData: FormData) {
       accountId,
       accessKeyId,
       bucket,
+      S3APIendpoint: s3ApiEndpoint || undefined,
       secretEnc: encryptSecret(secretAccessKey),
     },
     createdAt: FieldValue.serverTimestamp(),
@@ -71,6 +100,108 @@ async function getMediaDoc(mediaId: string) {
   const data = snap.data()
   if (!data) throw new Error("Storage no encontrado")
   return { ref: snap.ref, data }
+}
+
+export async function getMediaStorageClient(mediaId: string) {
+  const session = await auth()
+  const email = session?.user?.email
+  if (!email) throw new Error("No autenticado")
+
+  const { data } = await getMediaDoc(mediaId)
+  const memberEmails = (data.memberEmails as string[] | undefined) ?? []
+  if (!memberEmails.includes(email)) {
+    throw new Error("Sin permisos para acceder a este storage")
+  }
+
+  const config = (data.config as {
+    accountId?: string
+    accessKeyId?: string
+    bucket?: string
+    secretEnc?: string
+    S3APIendpoint?: string
+  }) ?? {}
+
+  const accountId = config.accountId?.trim()
+  const accessKeyId = config.accessKeyId?.trim()
+  const bucket = config.bucket?.trim()
+  const secretAccessKey = config.secretEnc ? decryptSecret(config.secretEnc) : ""
+  const endpoint = normalizeR2Endpoint(config.S3APIendpoint)
+
+  if (!accountId || !accessKeyId || !bucket || !secretAccessKey || !endpoint) {
+    throw new Error("Falta el endpoint de Cloudflare R2")
+  }
+  
+  const client = new S3Client({
+    region: "auto",
+    endpoint,
+    forcePathStyle: true,
+    maxAttempts: 1,
+    credentials: {
+      accessKeyId,
+      secretAccessKey,
+    },
+  })
+
+  return { client, bucket }
+}
+
+export async function listMediaStorageEntries(
+  mediaId: string,
+  prefix = "",
+): Promise<StorageEntry[]> {
+  const { client, bucket } = await getMediaStorageClient(mediaId)
+  
+
+  try {
+    const response = await client.send(
+      new ListObjectsV2Command({
+        Bucket: bucket,
+        Prefix: prefix,
+        Delimiter: "/",
+      }),
+      { abortSignal: AbortSignal.timeout(15_000) },
+    )
+
+    console.log(
+      `[media:list] bucket ${bucket} prefix ${prefix || "/"} returned ${
+        (response.Contents ?? []).length
+      } files and ${(response.CommonPrefixes ?? []).length} folders`,
+    )
+
+    const folders = (response.CommonPrefixes ?? [])
+    .map((item) => item.Prefix ?? "")
+    .filter(Boolean)
+    .map((folderKey) => {
+      const name = folderKey.replace(/\/$/, "").split("/").filter(Boolean).at(-1) ?? folderKey
+      return {
+        key: folderKey,
+        name,
+        type: "folder" as const,
+      }
+    })
+
+  const files = (response.Contents ?? [])
+    .filter((item) => item.Key && item.Key !== prefix)
+    .map((item) => {
+      const key = item.Key ?? ""
+      const name = key.split("/").filter(Boolean).at(-1) ?? key
+      return {
+        key,
+        name,
+        type: "file" as const,
+        size: item.Size ?? 0,
+        lastModified: item.LastModified ? new Date(item.LastModified) : undefined,
+      }
+    })
+
+    return [...folders, ...files].sort((left, right) => {
+      if (left.type !== right.type) return left.type === "folder" ? -1 : 1
+      return left.name.localeCompare(right.name)
+    })
+  } catch (error) {
+    console.error({error})
+    return []
+  }
 }
 
 async function requireEditor(
@@ -93,6 +224,7 @@ export async function updateMediaConfig(
   accessKeyId: string,
   secretAccessKey: string,
   bucket: string,
+  s3ApiEndpoint?: string,
 ) {
   const session = await auth()
   const email = session?.user?.email
@@ -109,6 +241,10 @@ export async function updateMediaConfig(
   await requireEditor(data, email, "editar la configuración")
 
   const currentSecretEnc = (data.config as { secretEnc?: string }).secretEnc
+  const currentConfig = (data.config as { S3APIendpoint?: string }) ?? {}
+  const resolvedS3ApiEndpoint =
+    normalizeR2Endpoint(s3ApiEndpoint) ||
+    normalizeR2Endpoint(currentConfig.S3APIendpoint)
   const secretEnc = config.secretAccessKey
     ? encryptSecret(config.secretAccessKey)
     : currentSecretEnc
@@ -118,6 +254,7 @@ export async function updateMediaConfig(
     "config.accountId": config.accountId,
     "config.accessKeyId": config.accessKeyId,
     "config.bucket": config.bucket,
+    "config.S3APIendpoint": resolvedS3ApiEndpoint || null,
     "config.secretEnc": secretEnc,
     updatedAt: FieldValue.serverTimestamp(),
   })

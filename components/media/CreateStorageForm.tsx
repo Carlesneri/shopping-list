@@ -14,6 +14,7 @@ export function CreateStorageForm({ onClose }: { onClose?: () => void }) {
   const [accessKeyId, setAccessKeyId] = useState("")
   const [secretAccessKey, setSecretAccessKey] = useState("")
   const [bucket, setBucket] = useState("")
+  const [s3ApiEndpoint, setS3ApiEndpoint] = useState("")
   const [submitting, setSubmitting] = useState(false)
 
   const isSubmitDisabled =
@@ -21,7 +22,8 @@ export function CreateStorageForm({ onClose }: { onClose?: () => void }) {
     !accountId.trim() ||
     !accessKeyId.trim() ||
     !secretAccessKey.trim() ||
-    !bucket.trim()
+    !bucket.trim() ||
+    !s3ApiEndpoint.trim()
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -40,6 +42,7 @@ export function CreateStorageForm({ onClose }: { onClose?: () => void }) {
         setAccessKeyId("")
         setSecretAccessKey("")
         setBucket("")
+        setS3ApiEndpoint("")
       }
     } catch (error) {
       console.error(error)
@@ -147,6 +150,21 @@ export function CreateStorageForm({ onClose }: { onClose?: () => void }) {
             value={bucket}
             onChange={(event) => setBucket(event.target.value)}
             placeholder="mi-bucket"
+            className={inputClass}
+          />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="font-semibold text-sm" htmlFor="s3ApiEndpoint">
+            Endpoint R2
+          </label>
+          <input
+            id="s3ApiEndpoint"
+            name="S3APIendpoint"
+            type="url"
+            value={s3ApiEndpoint}
+            onChange={(event) => setS3ApiEndpoint(event.target.value)}
+            placeholder="https://<account>.r2.cloudflarestorage.com"
             className={inputClass}
           />
         </div>

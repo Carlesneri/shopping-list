@@ -50,13 +50,14 @@ export function MediaDetail({ media, userEmail }: Props) {
 
       <div className="flex flex-col gap-2">
         <ConfigRow
+          label="Nombre"
+          value={title}
+        />
+        <ConfigRow
           label="Proveedor"
           value={PROVIDER_LABELS[media.provider] ?? media.provider}
         />
-        <ConfigRow label="Account ID" value={media.config.accountId} />
-        <ConfigRow label="Access Key ID" value={media.config.accessKeyId} />
         <ConfigRow label="Bucket" value={media.config.bucket} />
-        <ConfigRow label="Secret Access Key" value="••••••••••••" />
       </div>
     </div>
   )
