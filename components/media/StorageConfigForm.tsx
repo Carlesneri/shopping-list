@@ -16,7 +16,7 @@ interface Props {
 }
 
 const inputClass =
-  "border-2 border-black rounded-md px-3 py-2 font-sans focus:outline-none focus:border-purple"
+  "border-2 border-black rounded-md px-3 py-2 font-sans focus:outline-none focus:border-blue"
 
 export function StorageConfigForm({ mediaId, config }: Props) {
   const [accountId, setAccountId] = useState(config.accountId)
@@ -27,7 +27,11 @@ export function StorageConfigForm({ mediaId, config }: Props) {
   const [loading, setLoading] = useState(false)
 
   const isSubmitDisabled =
-    loading || !accountId.trim() || !accessKeyId.trim() || !bucket.trim() || !s3ApiEndpoint.trim()
+    loading ||
+    !accountId.trim() ||
+    !accessKeyId.trim() ||
+    !bucket.trim() ||
+    !s3ApiEndpoint.trim()
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -119,7 +123,10 @@ export function StorageConfigForm({ mediaId, config }: Props) {
         />
       </div>
       <div className="flex flex-col gap-1">
-        <label className="font-semibold text-sm" htmlFor="settings-s3ApiEndpoint">
+        <label
+          className="font-semibold text-sm"
+          htmlFor="settings-s3ApiEndpoint"
+        >
           Endpoint R2
         </label>
         <input
@@ -132,7 +139,7 @@ export function StorageConfigForm({ mediaId, config }: Props) {
       </div>
       <Button
         type="submit"
-        variant="purple"
+        variant="blue"
         disabled={isSubmitDisabled}
         className="w-fit"
       >

@@ -6,7 +6,7 @@ import { createMediaStorage } from "@/lib/actions/media"
 import { IconX } from "@tabler/icons-react"
 
 const inputClass =
-  "border-2 border-black rounded-md px-3 py-2 font-sans focus:outline-none focus:border-purple"
+  "border-2 border-black rounded-md px-3 py-2 font-sans focus:outline-none focus:border-blue"
 
 export function CreateStorageForm({ onClose }: { onClose?: () => void }) {
   const [title, setTitle] = useState("")
@@ -171,7 +171,7 @@ export function CreateStorageForm({ onClose }: { onClose?: () => void }) {
 
         <Button
           type="submit"
-          variant="purple"
+          variant="blue"
           disabled={isSubmitDisabled || submitting}
           className="w-fit"
         >

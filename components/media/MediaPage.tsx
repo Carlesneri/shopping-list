@@ -42,7 +42,7 @@ export function MediaPage({ userEmail }: { userEmail: string }) {
             type="button"
             onClick={() => setIsCreating(true)}
             className="fixed bottom-6 right-6"
-            color="purple"
+            color="blue"
             aria-label="Añadir storage"
           >
             <IconPlus size={28} />

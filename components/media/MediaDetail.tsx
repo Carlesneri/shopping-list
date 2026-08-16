@@ -16,7 +16,7 @@ export function MediaDetail({ media, userEmail }: Props) {
   const title = media.title?.trim() || "Storage sin título"
 
   return (
-    <div className="px-4 py-6 max-w-lg mx-auto w-full">
+    <div className="py-6 max-w-lg mx-auto w-full">
       <Link
         href="/media"
         className="flex items-center gap-1 text-text/60 mb-5 hover:text-text transition-colors w-fit"
@@ -28,10 +28,10 @@ export function MediaDetail({ media, userEmail }: Props) {
       <div className="flex items-start justify-between mb-6">
         <h1 className="text-2xl font-bold leading-tight">{title}</h1>
         <div className="flex items-center gap-2">
-          <ShareButton path={`/media/${media.id}`} color="purple" />
+          <ShareButton path={`/media/${media.id}`} color="blue" />
           {canManage && (
             <Link href={`/media/${media.id}/ajustes`}>
-              <FabButton type="button" color="purple" size="sm">
+              <FabButton type="button" color="blue" size="sm">
                 <IconSettings size={18} />
               </FabButton>
             </Link>

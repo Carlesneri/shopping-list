@@ -35,7 +35,7 @@ function formatDate(date: Date) {
 
 function EntryIcon({ entry }: { entry: StorageEntry }) {
   if (entry.type === "folder") {
-    return <IconFolder size={15} className="shrink-0 text-violet-600" />
+    return <IconFolder size={15} className="shrink-0 text-blue-500" />
   }
   switch (entry.mediaKind) {
     case "video":
@@ -124,7 +124,7 @@ export function MediaFileList({ entries }: { entries: StorageEntry[] }) {
                   ) : null}
                   <div className="flex justify-between gap-3">
                     <dt className="text-text/50">Ruta</dt>
-                    <dd className="truncate font-mono text-xs">{entry.key}</dd>
+                    <dd className="font-mono text-xs">{entry.key}</dd>
                   </div>
                 </dl>
               </div>

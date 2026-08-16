@@ -17,7 +17,7 @@ export default async function HomePage() {
           )}
           <div className="flex flex-col gap-3 items-center">
             <Link href="/compras" className="w-full">
-              <Button variant="secondary" className="w-full">
+              <Button variant="purple" className="w-full">
                 Mis listas
               </Button>
             </Link>
@@ -27,7 +27,7 @@ export default async function HomePage() {
               </Button>
             </Link>
             <Link href="/media" className="w-full">
-              <Button variant="purple" className="w-full">
+              <Button variant="blue" className="w-full">
                 Mi media
               </Button>
             </Link>

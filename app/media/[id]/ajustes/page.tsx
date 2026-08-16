@@ -74,7 +74,7 @@ export default async function MediaSettingsPage({ params }: Props) {
         <h1 className="text-2xl font-bold">
           Ajustes &ldquo;{media.title || "Sin título"}&rdquo;
         </h1>
-        <ShareButton path={`/media/${id}`} color="purple" />
+        <ShareButton path={`/media/${id}`} color="blue" />
       </div>
       {isOwner && (
         <div className="mb-8 pb-6 border-b border-black/10">

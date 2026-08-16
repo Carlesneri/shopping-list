@@ -73,7 +73,7 @@ export function MediaGrid({
           <button
             type="button"
             onClick={onCreateClick}
-            className="font-bold text-purple underline underline-offset-4 hover:text-purple/80"
+            className="font-bold text-blue underline underline-offset-4 hover:text-blue/80"
           >
             Añade tu primer storage
           </button>
