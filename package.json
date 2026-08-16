@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "biome check",
     "format": "biome format --write",
+    "deploy:rules": "node scripts/deploy-rules.mjs",
     "test": "vitest"
   },
   "dependencies": {

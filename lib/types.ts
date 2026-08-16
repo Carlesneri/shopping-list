@@ -44,3 +44,30 @@ export interface Nota {
   createdAt: { seconds: number; nanoseconds: number }
   updatedAt: { seconds: number; nanoseconds: number }
 }
+
+export const STORAGE_PROVIDERS = ["cloudflare-r2"] as const
+export type StorageProvider = (typeof STORAGE_PROVIDERS)[number]
+
+export const PROVIDER_LABELS: Record<StorageProvider, string> = {
+  "cloudflare-r2": "Cloudflare R2",
+}
+
+/** Cloudflare R2 configuration as stored in Firestore. `secretEnc` holds the
+ * encrypted secret access key ("iv:tag:ciphertext", base64). */
+export interface R2Config {
+  accountId: string
+  accessKeyId: string
+  bucket: string
+  secretEnc: string
+}
+
+export interface MediaStorage {
+  id: string
+  title: string
+  provider: StorageProvider
+  allowedUsers: AllowedUser[]
+  memberEmails: string[]
+  config: R2Config
+  createdAt: { seconds: number; nanoseconds: number }
+  updatedAt: { seconds: number; nanoseconds: number }
+}

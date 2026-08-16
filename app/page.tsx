@@ -18,12 +18,17 @@ export default async function HomePage() {
           <div className="flex flex-col gap-3 items-center">
             <Link href="/compras" className="w-full">
               <Button variant="secondary" className="w-full">
-                Ver mis listas
+                Mis listas
               </Button>
             </Link>
             <Link href="/notas" className="w-full">
               <Button variant="orange" className="w-full">
                 Mis notas
+              </Button>
+            </Link>
+            <Link href="/media" className="w-full">
+              <Button variant="purple" className="w-full">
+                Mi media
               </Button>
             </Link>
           </div>
