@@ -1,10 +1,11 @@
 import type { Metadata } from "next"
-import { cache } from "react"
+import { Suspense, cache } from "react"
 import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import { getDB } from "@/lib/firebase-admin"
 import { MediaDetail } from "@/components/media/MediaDetail"
 import { MediaFileList } from "@/components/media/MediaFileList"
+import { Loader } from "@/components/ui/Loader"
 import { listMediaStorageEntries } from "@/lib/actions/media"
 import type { MediaStorage } from "@/lib/types"
 
@@ -57,6 +58,23 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
+async function MediaEntries({ id }: { id: string }) {
+  const entries = await listMediaStorageEntries(id).catch((error) => {
+    console.error(`[media:page] failed to load entries for ${id}`, error)
+    return []
+  })
+
+  if (entries.length === 0) {
+    return (
+      <p className="text-sm text-text/60">
+        Este bucket está vacío o no se pudo cargar su contenido.
+      </p>
+    )
+  }
+
+  return <MediaFileList entries={entries} />
+}
+
 export default async function MediaStoragePage({ params }: Props) {
   const { id } = await params
   const session = await auth()
@@ -64,11 +82,6 @@ export default async function MediaStoragePage({ params }: Props) {
 
   const media = await getMediaStorage(id)
   if (!media || !media.memberEmails.includes(session.user.email)) redirect("/")
-
-  const entries = await listMediaStorageEntries(id).catch((error) => {
-    console.error(`[media:page] failed to load entries for ${id}`, error)
-    return []
-  })
 
   return (
     <div className="flex flex-col gap-6 px-4 py-6 max-w-lg mx-auto w-full">
@@ -79,13 +92,13 @@ export default async function MediaStoragePage({ params }: Props) {
           Archivos y carpetas
         </h2>
 
-        {entries.length === 0 ? (
-          <p className="text-sm text-text/60">
-            Este bucket está vacío o no se pudo cargar su contenido.
-          </p>
-        ) : (
-          <MediaFileList entries={entries} />
-        )}
+        <Suspense
+          fallback={
+            <Loader size={48} label="Cargando archivos…" className="py-6" />
+          }
+        >
+          <MediaEntries id={id} />
+        </Suspense>
       </div>
     </div>
   )
