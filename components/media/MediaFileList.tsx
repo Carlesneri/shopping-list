@@ -138,13 +138,7 @@ export function MediaFileList({
   async function handleDownloadFile(entry: StorageEntry) {
     setLoadingKey(entry.key)
     try {
-      const url = await getMediaEntryUrl(mediaId, entry.key)
-      const anchor = document.createElement("a")
-      anchor.href = url
-      anchor.download = entry.name
-      document.body.appendChild(anchor)
-      anchor.click()
-      anchor.remove()
+      window.location.href = await getMediaEntryUrl(mediaId, entry.key, true)
     } catch (error) {
       console.error("[media:download] failed to resolve url", error)
       toast.error("No se pudo descargar el archivo")

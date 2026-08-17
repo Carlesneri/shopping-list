@@ -218,6 +218,7 @@ export async function listMediaStorageEntries(
 export async function getMediaEntryUrl(
   mediaId: string,
   key: string,
+  asDownload = false,
 ): Promise<string> {
   const { client, bucket } = await getMediaStorageClient(mediaId)
 
@@ -226,9 +227,19 @@ export async function getMediaEntryUrl(
     throw new Error("Clave de archivo inválida")
   }
 
+  const fileName = trimmedKey.split("/").at(-1) ?? trimmedKey
+
   return getSignedUrl(
     client,
-    new GetObjectCommand({ Bucket: bucket, Key: trimmedKey }),
+    new GetObjectCommand({
+      Bucket: bucket,
+      Key: trimmedKey,
+      ...(asDownload
+        ? {
+            ResponseContentDisposition: `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`,
+          }
+        : {}),
+    }),
     { expiresIn: 60 * 60 * 6 },
   )
 }
