@@ -1,15 +1,19 @@
 "use client"
 
 import { useState } from "react"
+import { toast } from "sonner"
 import {
   IconFile,
   IconFolder,
+  IconLoader2,
   IconMusic,
   IconPhoto,
   IconPlayerPlay,
   IconVideo,
 } from "@tabler/icons-react"
 import type { MediaKind, StorageEntry } from "@/lib/types"
+import { getMediaEntryUrl } from "@/lib/actions/media"
+import { MediaPlayer } from "./MediaPlayer"
 
 const MEDIA_TYPE_LABELS: Record<MediaKind, string> = {
   video: "Video",
@@ -49,8 +53,32 @@ function EntryIcon({ entry }: { entry: StorageEntry }) {
   }
 }
 
-export function MediaFileList({ entries }: { entries: StorageEntry[] }) {
+export function MediaFileList({
+  mediaId,
+  entries,
+}: {
+  mediaId: string
+  entries: StorageEntry[]
+}) {
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const [loadingKey, setLoadingKey] = useState<string | null>(null)
+  const [playing, setPlaying] = useState<{
+    src: string
+    title: string
+  } | null>(null)
+
+  async function handlePlay(entry: StorageEntry) {
+    setLoadingKey(entry.key)
+    try {
+      const src = await getMediaEntryUrl(mediaId, entry.key)
+      setPlaying({ src, title: entry.name })
+    } catch (error) {
+      console.error("[media:play] failed to resolve url", error)
+      toast.error("No se pudo abrir el archivo")
+    } finally {
+      setLoadingKey(null)
+    }
+  }
 
   return (
     <ul className="flex flex-col gap-2">
@@ -81,20 +109,26 @@ export function MediaFileList({ entries }: { entries: StorageEntry[] }) {
                     {entry.name}
                   </span>
                 )}
-                {entry.mediaKind === "video" ? (
-                  <button
-                    type="button"
-                    className="shrink-0 cursor-pointer text-blue-600 hover:text-blue-700"
-                    aria-label={`Reproducir ${entry.name}`}
-                  >
-                    <IconPlayerPlay size={16} fill="currentColor" />
-                  </button>
-                ) : null}
               </div>
               {isFile && entry.size !== undefined ? (
                 <span className="shrink-0 text-xs text-text/50">
                   {formatSize(entry.size)}
                 </span>
+              ) : null}
+              {entry.mediaKind === "video" ? (
+                <button
+                  type="button"
+                  onClick={() => handlePlay(entry)}
+                  disabled={loadingKey !== null}
+                  className="shrink-0 cursor-pointer text-blue-600 transition-colors hover:text-blue-700 disabled:cursor-wait disabled:text-text/40"
+                  aria-label={`Reproducir ${entry.name}`}
+                >
+                  {loadingKey === entry.key ? (
+                    <IconLoader2 size={16} className="animate-spin" />
+                  ) : (
+                    <IconPlayerPlay size={16} fill="currentColor" />
+                  )}
+                </button>
               ) : null}
             </div>
             {isFile && isSelected ? (
@@ -132,6 +166,13 @@ export function MediaFileList({ entries }: { entries: StorageEntry[] }) {
           </li>
         )
       })}
+      {playing ? (
+        <MediaPlayer
+          src={playing.src}
+          title={playing.title}
+          onClose={() => setPlaying(null)}
+        />
+      ) : null}
     </ul>
   )
 }

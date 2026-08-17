@@ -72,7 +72,7 @@ async function MediaEntries({ id }: { id: string }) {
     )
   }
 
-  return <MediaFileList entries={entries} />
+  return <MediaFileList mediaId={id} entries={entries} />
 }
 
 export default async function MediaStoragePage({ params }: Props) {

@@ -4,7 +4,12 @@ import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import { FieldValue } from "firebase-admin/firestore"
 import { revalidatePath } from "next/cache"
-import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3"
+import {
+  S3Client,
+  ListObjectsV2Command,
+  GetObjectCommand,
+} from "@aws-sdk/client-s3"
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { getDB } from "@/lib/firebase-admin"
 import {
   validateMediaInput,
@@ -208,6 +213,24 @@ export async function listMediaStorageEntries(
     console.error({error})
     return []
   }
+}
+
+export async function getMediaEntryUrl(
+  mediaId: string,
+  key: string,
+): Promise<string> {
+  const { client, bucket } = await getMediaStorageClient(mediaId)
+
+  const trimmedKey = key.trim()
+  if (!trimmedKey || trimmedKey.includes("..")) {
+    throw new Error("Clave de archivo inválida")
+  }
+
+  return getSignedUrl(
+    client,
+    new GetObjectCommand({ Bucket: bucket, Key: trimmedKey }),
+    { expiresIn: 3600 },
+  )
 }
 
 async function requireEditor(
