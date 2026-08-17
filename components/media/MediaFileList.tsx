@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { toast } from "sonner"
 import {
-  IconExternalLink,
+  IconDownload,
   IconFile,
   IconFolder,
   IconHeadphones,
@@ -12,6 +12,7 @@ import {
   IconMusic,
   IconPhoto,
   IconPlayerPlay,
+  IconPlaylist,
   IconVideo,
 } from "@tabler/icons-react"
 import type { MediaKind, StorageEntry } from "@/lib/types"
@@ -122,37 +123,38 @@ export function MediaFileList({
     URL.revokeObjectURL(blobUrl)
   }
 
-  async function handleOpenInVlc(entry: StorageEntry) {
+  async function handleDownloadM3u(entry: StorageEntry) {
     setLoadingKey(entry.key)
     try {
-      const url = await getMediaEntryUrl(mediaId, entry.key)
-
-      if (/android/i.test(navigator.userAgent)) {
-        const parsed = new URL(url)
-        window.location.href = `intent://${parsed.host}${parsed.pathname}${parsed.search}#Intent;scheme=https;package=org.videolan.vlc;S.url=${encodeURIComponent(url)};end`
-        toast.info("Abriendo en VLC…")
-      } else if (/mac/i.test(navigator.platform)) {
-        downloadM3u(entry, url)
-        toast.info("Playlist descargada", {
-          description: "Ábrela con VLC para reproducir el vídeo.",
-        })
-      } else {
-        window.location.href = `vlc://${url}`
-        toast.info("Abriendo en VLC…", {
-          description:
-            "Si VLC no se abrió, descarga el archivo y ábrelo con VLC.",
-          action: {
-            label: "Descargar .m3u",
-            onClick: () => downloadM3u(entry, url),
-          },
-        })
-      }
+      downloadM3u(entry, await getMediaEntryUrl(mediaId, entry.key))
     } catch (error) {
       console.error("[media:vlc] failed to resolve url", error)
-      toast.error("No se pudo abrir el archivo")
+      toast.error("No se pudo generar el playlist")
     } finally {
       setLoadingKey(null)
     }
+  }
+
+  async function handleDownloadFile(entry: StorageEntry) {
+    setLoadingKey(entry.key)
+    try {
+      const url = await getMediaEntryUrl(mediaId, entry.key)
+      const anchor = document.createElement("a")
+      anchor.href = url
+      anchor.download = entry.name
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+    } catch (error) {
+      console.error("[media:download] failed to resolve url", error)
+      toast.error("No se pudo descargar el archivo")
+    } finally {
+      setLoadingKey(null)
+    }
+  }
+
+  function isMkv(entry: StorageEntry) {
+    return entry.key.toLowerCase().endsWith(".mkv")
   }
 
   async function handleOpen(entry: StorageEntry) {
@@ -214,7 +216,8 @@ export function MediaFileList({
                   {formatSize(entry.size)}
                 </span>
               ) : null}
-              {entry.mediaKind ? (
+              {entry.mediaKind &&
+              !(entry.mediaKind === "video" && isMkv(entry)) ? (
                 <button
                   type="button"
                   onClick={() => handleOpen(entry)}
@@ -240,12 +243,31 @@ export function MediaFileList({
               {entry.mediaKind === "video" ? (
                 <button
                   type="button"
-                  onClick={() => handleOpenInVlc(entry)}
+                  onClick={() => handleDownloadM3u(entry)}
                   disabled={loadingKey !== null}
                   className="shrink-0 cursor-pointer text-text/50 transition-colors hover:text-text disabled:cursor-wait disabled:text-text/30"
-                  aria-label={`Abrir ${entry.name} en VLC`}
+                  aria-label={`Descargar playlist de ${entry.name}`}
                 >
-                  <IconExternalLink size={16} />
+                  {loadingKey === entry.key ? (
+                    <IconLoader2 size={16} className="animate-spin" />
+                  ) : (
+                    <IconPlaylist size={16} />
+                  )}
+                </button>
+              ) : null}
+              {entry.mediaKind ? (
+                <button
+                  type="button"
+                  onClick={() => handleDownloadFile(entry)}
+                  disabled={loadingKey !== null}
+                  className="shrink-0 cursor-pointer text-text/50 transition-colors hover:text-text disabled:cursor-wait disabled:text-text/30"
+                  aria-label={`Descargar ${entry.name}`}
+                >
+                  {loadingKey === entry.key ? (
+                    <IconLoader2 size={16} className="animate-spin" />
+                  ) : (
+                    <IconDownload size={16} />
+                  )}
                 </button>
               ) : null}
             </div>
