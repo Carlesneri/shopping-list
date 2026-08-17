@@ -229,7 +229,7 @@ export async function getMediaEntryUrl(
   return getSignedUrl(
     client,
     new GetObjectCommand({ Bucket: bucket, Key: trimmedKey }),
-    { expiresIn: 3600 },
+    { expiresIn: 60 * 60 * 6 },
   )
 }
 

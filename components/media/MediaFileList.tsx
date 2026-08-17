@@ -3,17 +3,20 @@
 import { useState } from "react"
 import { toast } from "sonner"
 import {
+  IconExternalLink,
   IconFile,
   IconFolder,
+  IconHeadphones,
   IconLoader2,
+  IconMaximize,
   IconMusic,
   IconPhoto,
   IconPlayerPlay,
   IconVideo,
 } from "@tabler/icons-react"
 import type { MediaKind, StorageEntry } from "@/lib/types"
-import { getMediaEntryUrl } from "@/lib/actions/media"
-import { MediaPlayer } from "./MediaPlayer"
+import { getMediaEntryUrl, listMediaStorageEntries } from "@/lib/actions/media"
+import { MediaPlayer, type SubtitleOption } from "./MediaPlayer"
 
 const MEDIA_TYPE_LABELS: Record<MediaKind, string> = {
   video: "Video",
@@ -65,13 +68,109 @@ export function MediaFileList({
   const [playing, setPlaying] = useState<{
     src: string
     title: string
+    kind: MediaKind
+    subtitles: SubtitleOption[]
   } | null>(null)
 
-  async function handlePlay(entry: StorageEntry) {
+  async function resolveSubtitles(
+    entry: StorageEntry,
+  ): Promise<SubtitleOption[]> {
+    try {
+      const lastSlash = entry.key.lastIndexOf("/")
+      const dir = lastSlash >= 0 ? entry.key.slice(0, lastSlash + 1) : ""
+      const fileName = entry.key.slice(dir.length)
+      const base = fileName.replace(/\.[^.]+$/, "")
+      const defaultName = `${base}.vtt`
+
+      const siblings = await listMediaStorageEntries(mediaId, dir)
+      const matches = siblings
+        .filter(
+          (s) =>
+            s.type === "file" &&
+            (s.name === defaultName ||
+              (s.name.startsWith(`${base}.`) && s.name.endsWith(".vtt"))),
+        )
+        .sort(
+          (a, b) =>
+            Number(b.name === defaultName) - Number(a.name === defaultName) ||
+            a.name.localeCompare(b.name),
+        )
+
+      return await Promise.all(
+        matches.map(async (s) => ({
+          label: s.name.slice(base.length + 1, -4) || "Subtítulos",
+          src: await getMediaEntryUrl(mediaId, s.key),
+        })),
+      )
+    } catch (error) {
+      console.error("[media:play] failed to resolve subtitles", error)
+      return []
+    }
+  }
+
+  function downloadM3u(entry: StorageEntry, url: string) {
+    const blob = new Blob([`#EXTM3U\n#EXTINF:-1,${entry.name}\n${url}\n`], {
+      type: "audio/x-mpegurl",
+    })
+    const blobUrl = URL.createObjectURL(blob)
+    const anchor = document.createElement("a")
+    anchor.href = blobUrl
+    anchor.download = `${entry.name.replace(/\.[^.]+$/, "")}.m3u`
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    URL.revokeObjectURL(blobUrl)
+  }
+
+  async function handleOpenInVlc(entry: StorageEntry) {
     setLoadingKey(entry.key)
     try {
-      const src = await getMediaEntryUrl(mediaId, entry.key)
-      setPlaying({ src, title: entry.name })
+      const url = await getMediaEntryUrl(mediaId, entry.key)
+
+      if (/android/i.test(navigator.userAgent)) {
+        const parsed = new URL(url)
+        window.location.href = `intent://${parsed.host}${parsed.pathname}${parsed.search}#Intent;scheme=https;package=org.videolan.vlc;S.url=${encodeURIComponent(url)};end`
+        toast.info("Abriendo en VLC…")
+      } else if (/mac/i.test(navigator.platform)) {
+        downloadM3u(entry, url)
+        toast.info("Playlist descargada", {
+          description: "Ábrela con VLC para reproducir el vídeo.",
+        })
+      } else {
+        window.location.href = `vlc://${url}`
+        toast.info("Abriendo en VLC…", {
+          description:
+            "Si VLC no se abrió, descarga el archivo y ábrelo con VLC.",
+          action: {
+            label: "Descargar .m3u",
+            onClick: () => downloadM3u(entry, url),
+          },
+        })
+      }
+    } catch (error) {
+      console.error("[media:vlc] failed to resolve url", error)
+      toast.error("No se pudo abrir el archivo")
+    } finally {
+      setLoadingKey(null)
+    }
+  }
+
+  async function handleOpen(entry: StorageEntry) {
+    if (!entry.mediaKind) return
+    setLoadingKey(entry.key)
+    try {
+      const [src, subtitles] = await Promise.all([
+        getMediaEntryUrl(mediaId, entry.key),
+        entry.mediaKind === "video"
+          ? resolveSubtitles(entry)
+          : Promise.resolve([]),
+      ])
+      setPlaying({
+        src,
+        title: entry.name,
+        kind: entry.mediaKind,
+        subtitles,
+      })
     } catch (error) {
       console.error("[media:play] failed to resolve url", error)
       toast.error("No se pudo abrir el archivo")
@@ -115,19 +214,38 @@ export function MediaFileList({
                   {formatSize(entry.size)}
                 </span>
               ) : null}
-              {entry.mediaKind === "video" ? (
+              {entry.mediaKind ? (
                 <button
                   type="button"
-                  onClick={() => handlePlay(entry)}
+                  onClick={() => handleOpen(entry)}
                   disabled={loadingKey !== null}
                   className="shrink-0 cursor-pointer text-blue-600 transition-colors hover:text-blue-700 disabled:cursor-wait disabled:text-text/40"
-                  aria-label={`Reproducir ${entry.name}`}
+                  aria-label={
+                    entry.mediaKind === "image"
+                      ? `Ver ${entry.name}`
+                      : `Reproducir ${entry.name}`
+                  }
                 >
                   {loadingKey === entry.key ? (
                     <IconLoader2 size={16} className="animate-spin" />
+                  ) : entry.mediaKind === "image" ? (
+                    <IconMaximize size={16} />
+                  ) : entry.mediaKind === "audio" ? (
+                    <IconHeadphones size={16} />
                   ) : (
                     <IconPlayerPlay size={16} fill="currentColor" />
                   )}
+                </button>
+              ) : null}
+              {entry.mediaKind === "video" ? (
+                <button
+                  type="button"
+                  onClick={() => handleOpenInVlc(entry)}
+                  disabled={loadingKey !== null}
+                  className="shrink-0 cursor-pointer text-text/50 transition-colors hover:text-text disabled:cursor-wait disabled:text-text/30"
+                  aria-label={`Abrir ${entry.name} en VLC`}
+                >
+                  <IconExternalLink size={16} />
                 </button>
               ) : null}
             </div>
@@ -170,6 +288,8 @@ export function MediaFileList({
         <MediaPlayer
           src={playing.src}
           title={playing.title}
+          kind={playing.kind}
+          subtitles={playing.subtitles}
           onClose={() => setPlaying(null)}
         />
       ) : null}

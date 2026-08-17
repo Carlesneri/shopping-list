@@ -1,16 +1,29 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import ReactPlayer from "react-player"
 import { IconX } from "@tabler/icons-react"
+import type { MediaKind } from "@/lib/types"
+
+export interface SubtitleOption {
+  label: string
+  src: string
+}
 
 interface Props {
   src: string
   title: string
+  kind: MediaKind
+  subtitles: SubtitleOption[]
   onClose: () => void
 }
 
-export function MediaPlayer({ src, title, onClose }: Props) {
+export function MediaPlayer({ src, title, kind, subtitles, onClose }: Props) {
+  const [videoEl, setVideoEl] = useState<HTMLVideoElement | null>(null)
+  const [subtitleSrc, setSubtitleSrc] = useState<string | null>(
+    subtitles[0]?.src ?? null,
+  )
+
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") onClose()
@@ -18,6 +31,31 @@ export function MediaPlayer({ src, title, onClose }: Props) {
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
   }, [onClose])
+
+  useEffect(() => {
+    if (!videoEl) return
+
+    for (const track of Array.from(videoEl.textTracks)) {
+      track.mode = "disabled"
+    }
+    videoEl.querySelectorAll("track").forEach((track) => {
+      track.remove()
+    })
+    if (!subtitleSrc) return
+
+    const track = document.createElement("track")
+    track.kind = "subtitles"
+    track.src = subtitleSrc
+    track.default = true
+    videoEl.appendChild(track)
+
+    const onAddTrack = (event: Event) => {
+      const added = (event as TrackEvent).track
+      if (added) added.mode = "showing"
+    }
+    videoEl.textTracks.addEventListener("addtrack", onAddTrack)
+    return () => videoEl.textTracks.removeEventListener("addtrack", onAddTrack)
+  }, [videoEl, subtitleSrc])
 
   return (
     <div
@@ -46,9 +84,62 @@ export function MediaPlayer({ src, title, onClose }: Props) {
             <IconX size={20} />
           </button>
         </div>
-        <div className="aspect-video w-full">
-          <ReactPlayer src={src} controls playing width="100%" height="100%" />
-        </div>
+        {kind === "image" ? (
+          <div className="flex max-h-[75vh] items-center justify-center bg-black p-2">
+            {/* biome-ignore lint/a11y/useAltText: title is rendered in the modal header */}
+            <img
+              src={src}
+              className="max-h-[75vh] w-auto max-w-full object-contain"
+            />
+          </div>
+        ) : kind === "audio" ? (
+          <div className="flex items-center justify-center gap-4 bg-black px-4 py-8">
+            {/* biome-ignore lint/a11y/useMediaCaption: audio has no caption tracks */}
+            <audio src={src} controls autoPlay className="w-full" />
+          </div>
+        ) : (
+          <div className="aspect-video w-full">
+            <ReactPlayer
+              ref={setVideoEl}
+              src={src}
+              crossOrigin="anonymous"
+              controls
+              playing
+              width="100%"
+              height="100%"
+            />
+          </div>
+        )}
+        {kind === "video" && subtitles.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-2 px-4 py-3">
+            <span className="text-xs text-white/60">Subtítulos</span>
+            <button
+              type="button"
+              onClick={() => setSubtitleSrc(null)}
+              className={`cursor-pointer rounded-full px-2 py-0.5 text-xs transition-colors ${
+                subtitleSrc === null
+                  ? "bg-white text-black"
+                  : "bg-white/10 text-white hover:bg-white/20"
+              }`}
+            >
+              Off
+            </button>
+            {subtitles.map((subtitle) => (
+              <button
+                key={subtitle.src}
+                type="button"
+                onClick={() => setSubtitleSrc(subtitle.src)}
+                className={`cursor-pointer rounded-full px-2 py-0.5 text-xs uppercase transition-colors ${
+                  subtitleSrc === subtitle.src
+                    ? "bg-white text-black"
+                    : "bg-white/10 text-white hover:bg-white/20"
+                }`}
+              >
+                {subtitle.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
     </div>
   )
