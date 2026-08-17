@@ -4,6 +4,7 @@ import { useState } from "react"
 import { toast } from "sonner"
 import {
   IconDownload,
+  IconExternalLink,
   IconFile,
   IconFolder,
   IconHeadphones,
@@ -65,7 +66,12 @@ export function MediaFileList({
   entries: StorageEntry[]
 }) {
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
-  const [loadingKey, setLoadingKey] = useState<string | null>(null)
+  const [loadingAction, setLoadingAction] = useState<{
+    key: string
+    action: "play" | "vlc" | "m3u" | "download"
+  } | null>(null)
+
+  const isBusy = loadingAction !== null
   const [playing, setPlaying] = useState<{
     src: string
     title: string
@@ -123,56 +129,79 @@ export function MediaFileList({
     URL.revokeObjectURL(blobUrl)
   }
 
-  async function handleDownloadM3u(entry: StorageEntry) {
-    setLoadingKey(entry.key)
+  async function runEntryAction(
+    entry: StorageEntry,
+    action: "play" | "vlc" | "m3u" | "download",
+    run: () => Promise<void>,
+  ) {
+    setLoadingAction({ key: entry.key, action })
     try {
-      downloadM3u(entry, await getMediaEntryUrl(mediaId, entry.key))
+      await run()
     } catch (error) {
-      console.error("[media:vlc] failed to resolve url", error)
-      toast.error("No se pudo generar el playlist")
+      console.error(`[media:${action}] failed for ${entry.key}`, error)
+      toast.error("No se pudo completar la acción")
     } finally {
-      setLoadingKey(null)
+      setLoadingAction(null)
     }
   }
 
-  async function handleDownloadFile(entry: StorageEntry) {
-    setLoadingKey(entry.key)
-    try {
+  function handleDownloadM3u(entry: StorageEntry) {
+    return runEntryAction(entry, "m3u", async () => {
+      downloadM3u(entry, await getMediaEntryUrl(mediaId, entry.key))
+    })
+  }
+
+  function handleDownloadFile(entry: StorageEntry) {
+    return runEntryAction(entry, "download", async () => {
       window.location.href = await getMediaEntryUrl(mediaId, entry.key, true)
-    } catch (error) {
-      console.error("[media:download] failed to resolve url", error)
-      toast.error("No se pudo descargar el archivo")
-    } finally {
-      setLoadingKey(null)
-    }
+    })
+  }
+
+  function handleOpenInVlc(entry: StorageEntry) {
+    return runEntryAction(entry, "vlc", async () => {
+      const url = await getMediaEntryUrl(mediaId, entry.key)
+
+      if (/android/i.test(navigator.userAgent)) {
+        const parsed = new URL(url)
+        window.location.href = `intent://${parsed.host}${parsed.pathname}${parsed.search}#Intent;scheme=https;package=org.videolan.vlc;S.url=${encodeURIComponent(url)};end`
+        toast.info("Abriendo en VLC…", {
+          description:
+            "Si VLC no se abrió, usa el botón de playlist o descarga el archivo.",
+        })
+      } else if (/mac/i.test(navigator.platform)) {
+        downloadM3u(entry, url)
+        toast.info("Playlist descargada", {
+          description: "Ábrela con VLC para reproducir el vídeo.",
+        })
+      } else {
+        window.location.href = `vlc://${url}`
+        toast.info("Abriendo en VLC…", {
+          description:
+            "Si VLC no se abrió, usa el botón de playlist o descarga el archivo.",
+        })
+      }
+    })
   }
 
   function isMkv(entry: StorageEntry) {
     return entry.key.toLowerCase().endsWith(".mkv")
   }
 
-  async function handleOpen(entry: StorageEntry) {
-    if (!entry.mediaKind) return
-    setLoadingKey(entry.key)
-    try {
+  function handleOpen(entry: StorageEntry) {
+    const kind = entry.mediaKind
+    if (!kind) return
+    return runEntryAction(entry, "play", async () => {
       const [src, subtitles] = await Promise.all([
         getMediaEntryUrl(mediaId, entry.key),
-        entry.mediaKind === "video"
-          ? resolveSubtitles(entry)
-          : Promise.resolve([]),
+        kind === "video" ? resolveSubtitles(entry) : Promise.resolve([]),
       ])
       setPlaying({
         src,
         title: entry.name,
-        kind: entry.mediaKind,
+        kind,
         subtitles,
       })
-    } catch (error) {
-      console.error("[media:play] failed to resolve url", error)
-      toast.error("No se pudo abrir el archivo")
-    } finally {
-      setLoadingKey(null)
-    }
+    })
   }
 
   return (
@@ -215,7 +244,7 @@ export function MediaFileList({
                 <button
                   type="button"
                   onClick={() => handleOpen(entry)}
-                  disabled={loadingKey !== null}
+                  disabled={isBusy}
                   className="shrink-0 cursor-pointer text-blue-600 transition-colors hover:text-blue-700 disabled:cursor-wait disabled:text-text/40"
                   aria-label={
                     entry.mediaKind === "image"
@@ -223,7 +252,8 @@ export function MediaFileList({
                       : `Reproducir ${entry.name}`
                   }
                 >
-                  {loadingKey === entry.key ? (
+                  {loadingAction?.key === entry.key &&
+                  loadingAction.action === "play" ? (
                     <IconLoader2 size={16} className="animate-spin" />
                   ) : entry.mediaKind === "image" ? (
                     <IconMaximize size={16} />
@@ -237,12 +267,29 @@ export function MediaFileList({
               {entry.mediaKind === "video" ? (
                 <button
                   type="button"
+                  onClick={() => handleOpenInVlc(entry)}
+                  disabled={isBusy}
+                  className="shrink-0 cursor-pointer text-text/50 transition-colors hover:text-text disabled:cursor-wait disabled:text-text/30"
+                  aria-label={`Abrir ${entry.name} en VLC`}
+                >
+                  {loadingAction?.key === entry.key &&
+                  loadingAction.action === "vlc" ? (
+                    <IconLoader2 size={16} className="animate-spin" />
+                  ) : (
+                    <IconExternalLink size={16} />
+                  )}
+                </button>
+              ) : null}
+              {entry.mediaKind === "video" ? (
+                <button
+                  type="button"
                   onClick={() => handleDownloadM3u(entry)}
-                  disabled={loadingKey !== null}
+                  disabled={isBusy}
                   className="shrink-0 cursor-pointer text-text/50 transition-colors hover:text-text disabled:cursor-wait disabled:text-text/30"
                   aria-label={`Descargar playlist de ${entry.name}`}
                 >
-                  {loadingKey === entry.key ? (
+                  {loadingAction?.key === entry.key &&
+                  loadingAction.action === "m3u" ? (
                     <IconLoader2 size={16} className="animate-spin" />
                   ) : (
                     <IconPlaylist size={16} />
@@ -253,11 +300,12 @@ export function MediaFileList({
                 <button
                   type="button"
                   onClick={() => handleDownloadFile(entry)}
-                  disabled={loadingKey !== null}
+                  disabled={isBusy}
                   className="shrink-0 cursor-pointer text-text/50 transition-colors hover:text-text disabled:cursor-wait disabled:text-text/30"
                   aria-label={`Descargar ${entry.name}`}
                 >
-                  {loadingKey === entry.key ? (
+                  {loadingAction?.key === entry.key &&
+                  loadingAction.action === "download" ? (
                     <IconLoader2 size={16} className="animate-spin" />
                   ) : (
                     <IconDownload size={16} />
