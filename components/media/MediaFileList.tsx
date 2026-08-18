@@ -115,18 +115,8 @@ export function MediaFileList({
     }
   }
 
-  function downloadM3u(entry: StorageEntry, url: string) {
-    const blob = new Blob([`#EXTM3U\n#EXTINF:-1,${entry.name}\n${url}\n`], {
-      type: "audio/x-mpegurl",
-    })
-    const blobUrl = URL.createObjectURL(blob)
-    const anchor = document.createElement("a")
-    anchor.href = blobUrl
-    anchor.download = `${entry.name.replace(/\.[^.]+$/, "")}.m3u`
-    document.body.appendChild(anchor)
-    anchor.click()
-    anchor.remove()
-    URL.revokeObjectURL(blobUrl)
+  function openPlaylist(entry: StorageEntry) {
+    window.location.href = `/media/${mediaId}/playlist?key=${encodeURIComponent(entry.key)}`
   }
 
   async function runEntryAction(
@@ -146,9 +136,7 @@ export function MediaFileList({
   }
 
   function handleDownloadM3u(entry: StorageEntry) {
-    return runEntryAction(entry, "m3u", async () => {
-      downloadM3u(entry, await getMediaEntryUrl(mediaId, entry.key))
-    })
+    openPlaylist(entry)
   }
 
   function handleDownloadFile(entry: StorageEntry) {
@@ -167,9 +155,10 @@ export function MediaFileList({
         toast.info("Abriendo en VLC…", {
           description:
             "Si VLC no se abrió, usa el botón de playlist o descarga el archivo.",
+          action: { label: "Playlist", onClick: () => openPlaylist(entry) },
         })
       } else if (/mac/i.test(navigator.platform)) {
-        downloadM3u(entry, url)
+        openPlaylist(entry)
         toast.info("Playlist descargada", {
           description: "Ábrela con VLC para reproducir el vídeo.",
         })
@@ -178,6 +167,7 @@ export function MediaFileList({
         toast.info("Abriendo en VLC…", {
           description:
             "Si VLC no se abrió, usa el botón de playlist o descarga el archivo.",
+          action: { label: "Playlist", onClick: () => openPlaylist(entry) },
         })
       }
     })
