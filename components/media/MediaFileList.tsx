@@ -8,6 +8,7 @@ import {
   IconFile,
   IconFolder,
   IconHeadphones,
+  IconLink,
   IconLoader2,
   IconMaximize,
   IconMusic,
@@ -68,7 +69,7 @@ export function MediaFileList({
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [loadingAction, setLoadingAction] = useState<{
     key: string
-    action: "play" | "vlc" | "m3u" | "download"
+    action: "play" | "vlc" | "m3u" | "download" | "copy"
   } | null>(null)
 
   const isBusy = loadingAction !== null
@@ -121,7 +122,7 @@ export function MediaFileList({
 
   async function runEntryAction(
     entry: StorageEntry,
-    action: "play" | "vlc" | "m3u" | "download",
+    action: "play" | "vlc" | "m3u" | "download" | "copy",
     run: () => Promise<void>,
   ) {
     setLoadingAction({ key: entry.key, action })
@@ -137,6 +138,14 @@ export function MediaFileList({
 
   function handleDownloadM3u(entry: StorageEntry) {
     openPlaylist(entry)
+  }
+
+  function handleCopyUrl(entry: StorageEntry) {
+    return runEntryAction(entry, "copy", async () => {
+      const url = await getMediaEntryUrl(mediaId, entry.key)
+      await navigator.clipboard.writeText(url)
+      toast.success("URL copiada al portapapeles")
+    })
   }
 
   function handleDownloadFile(entry: StorageEntry) {
@@ -299,6 +308,22 @@ export function MediaFileList({
                     <IconLoader2 size={16} className="animate-spin" />
                   ) : (
                     <IconDownload size={16} />
+                  )}
+                </button>
+              ) : null}
+              {isFile ? (
+                <button
+                  type="button"
+                  onClick={() => handleCopyUrl(entry)}
+                  disabled={isBusy}
+                  className="shrink-0 cursor-pointer text-text/50 transition-colors hover:text-text disabled:cursor-wait disabled:text-text/30"
+                  aria-label={`Copiar URL de ${entry.name}`}
+                >
+                  {loadingAction?.key === entry.key &&
+                  loadingAction.action === "copy" ? (
+                    <IconLoader2 size={16} className="animate-spin" />
+                  ) : (
+                    <IconLink size={16} />
                   )}
                 </button>
               ) : null}
