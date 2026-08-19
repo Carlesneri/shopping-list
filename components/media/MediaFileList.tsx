@@ -3,23 +3,16 @@
 import { useState } from "react"
 import { toast } from "sonner"
 import {
-  IconDownload,
-  IconExternalLink,
   IconFile,
   IconFolder,
-  IconHeadphones,
-  IconLink,
-  IconLoader2,
-  IconMaximize,
   IconMusic,
   IconPhoto,
-  IconPlayerPlay,
-  IconPlaylist,
   IconVideo,
 } from "@tabler/icons-react"
 import type { MediaKind, StorageEntry } from "@/lib/types"
 import { getMediaEntryUrl, listMediaStorageEntries } from "@/lib/actions/media"
 import { MediaPlayer, type SubtitleOption } from "./MediaPlayer"
+import { ActionButtons, type ActionKind } from "./ActionButtons"
 
 const MEDIA_TYPE_LABELS: Record<MediaKind, string> = {
   video: "Video",
@@ -45,17 +38,17 @@ function formatDate(date: Date) {
 
 function EntryIcon({ entry }: { entry: StorageEntry }) {
   if (entry.type === "folder") {
-    return <IconFolder size={15} className="shrink-0 text-blue-500" />
+    return <IconFolder size={20} className="shrink-0 text-blue-500" />
   }
   switch (entry.mediaKind) {
     case "video":
-      return <IconVideo size={15} className="shrink-0 text-blue-600" />
+      return <IconVideo size={20} className="shrink-0 text-blue-600" />
     case "image":
-      return <IconPhoto size={15} className="shrink-0 text-emerald-600" />
+      return <IconPhoto size={20} className="shrink-0 text-emerald-600" />
     case "audio":
-      return <IconMusic size={15} className="shrink-0 text-amber-600" />
+      return <IconMusic size={20} className="shrink-0 text-amber-600" />
     default:
-      return <IconFile size={15} className="shrink-0 text-text/70" />
+      return <IconFile size={20} className="shrink-0 text-text/70" />
   }
 }
 
@@ -69,10 +62,9 @@ export function MediaFileList({
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [loadingAction, setLoadingAction] = useState<{
     key: string
-    action: "play" | "vlc" | "m3u" | "download" | "copy"
+    action: ActionKind
   } | null>(null)
 
-  const isBusy = loadingAction !== null
   const [playing, setPlaying] = useState<{
     src: string
     title: string
@@ -122,7 +114,7 @@ export function MediaFileList({
 
   async function runEntryAction(
     entry: StorageEntry,
-    action: "play" | "vlc" | "m3u" | "download" | "copy",
+    action: ActionKind,
     run: () => Promise<void>,
   ) {
     setLoadingAction({ key: entry.key, action })
@@ -213,8 +205,8 @@ export function MediaFileList({
             key={entry.key}
             className="rounded-md border border-black/10 bg-white text-sm"
           >
-            <div className="flex items-center justify-between gap-3 px-3 py-2">
-              <div className="flex min-w-0 flex-1 items-center gap-2">
+            <div className="flex flex-col gap-1 px-3 py-2">
+              <div className="flex min-w-0 items-center gap-2">
                 <EntryIcon entry={entry} />
                 {isFile ? (
                   <button
@@ -222,111 +214,37 @@ export function MediaFileList({
                     onClick={() =>
                       setSelectedKey(isSelected ? null : entry.key)
                     }
-                    className="min-w-0 flex-1 cursor-pointer truncate font-medium text-start"
+                    className="min-w-0 flex-1 cursor-pointer truncate text-base font-medium text-start"
                     aria-expanded={isSelected}
                   >
                     {entry.name}
                   </button>
                 ) : (
-                  <span className="min-w-0 flex-1 truncate font-medium">
+                  <span className="min-w-0 flex-1 truncate text-base font-medium">
                     {entry.name}
                   </span>
                 )}
               </div>
-              {isFile && entry.size !== undefined ? (
-                <span className="shrink-0 text-xs text-text/50">
-                  {formatSize(entry.size)}
-                </span>
-              ) : null}
-              {entry.mediaKind &&
-              !(entry.mediaKind === "video" && isMkv(entry)) ? (
-                <button
-                  type="button"
-                  onClick={() => handleOpen(entry)}
-                  disabled={isBusy}
-                  className="shrink-0 cursor-pointer text-blue-600 transition-colors hover:text-blue-700 disabled:cursor-wait disabled:text-text/40"
-                  aria-label={
-                    entry.mediaKind === "image"
-                      ? `Ver ${entry.name}`
-                      : `Reproducir ${entry.name}`
-                  }
-                >
-                  {loadingAction?.key === entry.key &&
-                  loadingAction.action === "play" ? (
-                    <IconLoader2 size={16} className="animate-spin" />
-                  ) : entry.mediaKind === "image" ? (
-                    <IconMaximize size={16} />
-                  ) : entry.mediaKind === "audio" ? (
-                    <IconHeadphones size={16} />
-                  ) : (
-                    <IconPlayerPlay size={16} fill="currentColor" />
-                  )}
-                </button>
-              ) : null}
-              {entry.mediaKind === "video" ? (
-                <button
-                  type="button"
-                  onClick={() => handleOpenInVlc(entry)}
-                  disabled={isBusy}
-                  className="shrink-0 cursor-pointer text-text/50 transition-colors hover:text-text disabled:cursor-wait disabled:text-text/30"
-                  aria-label={`Abrir ${entry.name} en VLC`}
-                >
-                  {loadingAction?.key === entry.key &&
-                  loadingAction.action === "vlc" ? (
-                    <IconLoader2 size={16} className="animate-spin" />
-                  ) : (
-                    <IconExternalLink size={16} />
-                  )}
-                </button>
-              ) : null}
-              {entry.mediaKind === "video" ? (
-                <button
-                  type="button"
-                  onClick={() => handleDownloadM3u(entry)}
-                  disabled={isBusy}
-                  className="shrink-0 cursor-pointer text-text/50 transition-colors hover:text-text disabled:cursor-wait disabled:text-text/30"
-                  aria-label={`Descargar playlist de ${entry.name}`}
-                >
-                  {loadingAction?.key === entry.key &&
-                  loadingAction.action === "m3u" ? (
-                    <IconLoader2 size={16} className="animate-spin" />
-                  ) : (
-                    <IconPlaylist size={16} />
-                  )}
-                </button>
-              ) : null}
-              {entry.mediaKind ? (
-                <button
-                  type="button"
-                  onClick={() => handleDownloadFile(entry)}
-                  disabled={isBusy}
-                  className="shrink-0 cursor-pointer text-text/50 transition-colors hover:text-text disabled:cursor-wait disabled:text-text/30"
-                  aria-label={`Descargar ${entry.name}`}
-                >
-                  {loadingAction?.key === entry.key &&
-                  loadingAction.action === "download" ? (
-                    <IconLoader2 size={16} className="animate-spin" />
-                  ) : (
-                    <IconDownload size={16} />
-                  )}
-                </button>
-              ) : null}
-              {isFile ? (
-                <button
-                  type="button"
-                  onClick={() => handleCopyUrl(entry)}
-                  disabled={isBusy}
-                  className="shrink-0 cursor-pointer text-text/50 transition-colors hover:text-text disabled:cursor-wait disabled:text-text/30"
-                  aria-label={`Copiar URL de ${entry.name}`}
-                >
-                  {loadingAction?.key === entry.key &&
-                  loadingAction.action === "copy" ? (
-                    <IconLoader2 size={16} className="animate-spin" />
-                  ) : (
-                    <IconLink size={16} />
-                  )}
-                </button>
-              ) : null}
+              <div className="flex items-center justify-between gap-3">
+                {isFile && entry.size !== undefined ? (
+                  <span className="shrink-0 text-xs text-text/50">
+                    {formatSize(entry.size)}
+                  </span>
+                ) : null}
+                <ActionButtons
+                  entryKey={entry.key}
+                  entryName={entry.name}
+                  mediaKind={entry.mediaKind}
+                  isMkv={isMkv(entry)}
+                  isFile={isFile}
+                  loading={loadingAction}
+                  onPlay={() => handleOpen(entry)}
+                  onVlc={() => handleOpenInVlc(entry)}
+                  onPlaylist={() => handleDownloadM3u(entry)}
+                  onDownload={() => handleDownloadFile(entry)}
+                  onCopyUrl={() => handleCopyUrl(entry)}
+                />
+              </div>
             </div>
             {isFile && isSelected ? (
               <div className="border-t border-black/10 px-3 py-2">
