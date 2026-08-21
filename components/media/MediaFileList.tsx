@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import type { MediaKind, StorageEntry } from "@/lib/types"
 import {
@@ -21,11 +22,13 @@ export function MediaFileList({
   entries: StorageEntry[]
   isAdmin: boolean
 }) {
+  const router = useRouter()
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [loadingAction, setLoadingAction] = useState<{
     key: string
     action: ActionKind
   } | null>(null)
+  const hasNotified = useRef(false)
 
   const [playing, setPlaying] = useState<{
     src: string
@@ -33,6 +36,35 @@ export function MediaFileList({
     kind: MediaKind
     subtitles: SubtitleOption[]
   } | null>(null)
+
+  const checkForNewItems = useCallback(async () => {
+    if (hasNotified.current) return
+
+    try {
+      const freshEntries = await listMediaStorageEntries(mediaId)
+      const currentKeys = new Set(entries.map((e) => e.key))
+      const newItems = freshEntries.filter((e) => !currentKeys.has(e.key))
+      if (newItems.length > 0 && !hasNotified.current) {
+        hasNotified.current = true
+        toast("Nuevos archivos detectados", {
+          description: `Se encontraron ${newItems.length} archivo(s) nuevo(s) en el storage.`,
+          duration: Infinity,
+          action: {
+            label: "Actualizar",
+            onClick: () => router.refresh(),
+          },
+        })
+      }
+    } catch (error) {
+      console.error("[media:sync] failed to check for new items", error)
+    }
+  }, [mediaId, entries, router])
+
+  useEffect(() => {
+    checkForNewItems()
+    const interval = setInterval(checkForNewItems, 60_1000)
+    return () => clearInterval(interval)
+  }, [checkForNewItems])
 
   async function resolveSubtitles(
     entry: StorageEntry,
@@ -161,34 +193,36 @@ export function MediaFileList({
   }
 
   return (
-    <ul className="flex flex-col gap-2">
-      {entries.map((entry) => (
-        <MediaFileListItem
-          key={entry.key}
-          entry={entry}
-          isSelected={entry.key === selectedKey}
-          onToggleSelect={() =>
-            setSelectedKey(entry.key === selectedKey ? null : entry.key)
-          }
-          loadingAction={loadingAction}
-          isAdmin={isAdmin}
-          onPlay={() => handleOpen(entry)}
-          onVlc={() => handleOpenInVlc(entry)}
-          onPlaylist={() => handleDownloadM3u(entry)}
-          onDownload={() => handleDownloadFile(entry)}
-          onCopyUrl={() => handleCopyUrl(entry)}
-          onDelete={() => handleDeleteFile(entry)}
-        />
-      ))}
-      {playing ? (
-        <MediaPlayer
-          src={playing.src}
-          title={playing.title}
-          kind={playing.kind}
-          subtitles={playing.subtitles}
-          onClose={() => setPlaying(null)}
-        />
-      ) : null}
-    </ul>
+    <div className="flex flex-col gap-2">
+      <ul className="flex flex-col gap-2">
+        {entries.map((entry) => (
+          <MediaFileListItem
+            key={entry.key}
+            entry={entry}
+            isSelected={entry.key === selectedKey}
+            onToggleSelect={() =>
+              setSelectedKey(entry.key === selectedKey ? null : entry.key)
+            }
+            loadingAction={loadingAction}
+            isAdmin={isAdmin}
+            onPlay={() => handleOpen(entry)}
+            onVlc={() => handleOpenInVlc(entry)}
+            onPlaylist={() => handleDownloadM3u(entry)}
+            onDownload={() => handleDownloadFile(entry)}
+            onCopyUrl={() => handleCopyUrl(entry)}
+            onDelete={() => handleDeleteFile(entry)}
+          />
+        ))}
+        {playing ? (
+          <MediaPlayer
+            src={playing.src}
+            title={playing.title}
+            kind={playing.kind}
+            subtitles={playing.subtitles}
+            onClose={() => setPlaying(null)}
+          />
+        ) : null}
+      </ul>
+    </div>
   )
 }
