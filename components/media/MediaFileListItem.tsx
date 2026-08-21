@@ -53,11 +53,13 @@ interface MediaFileListItemProps {
   isSelected: boolean
   onToggleSelect: () => void
   loadingAction: { key: string; action: ActionKind } | null
+  isAdmin: boolean
   onPlay: () => void
   onVlc: () => void
   onPlaylist: () => void
   onDownload: () => void
   onCopyUrl: () => void
+  onDelete: () => void
 }
 
 export function MediaFileListItem({
@@ -65,11 +67,13 @@ export function MediaFileListItem({
   isSelected,
   onToggleSelect,
   loadingAction,
+  isAdmin,
   onPlay,
   onVlc,
   onPlaylist,
   onDownload,
   onCopyUrl,
+  onDelete,
 }: MediaFileListItemProps) {
   const isFile = entry.type === "file"
   const isMkv = entry.key.toLowerCase().endsWith(".mkv")
@@ -106,12 +110,14 @@ export function MediaFileListItem({
             mediaKind={entry.mediaKind}
             isMkv={isMkv}
             isFile={isFile}
+            isAdmin={isAdmin}
             loading={loadingAction}
             onPlay={onPlay}
             onVlc={onVlc}
             onPlaylist={onPlaylist}
             onDownload={onDownload}
             onCopyUrl={onCopyUrl}
+            onDelete={onDelete}
           />
         </div>
       </div>

@@ -17,6 +17,8 @@ describe("buildListMetadata", () => {
       market: "Carrefour",
       products: [],
     })
-    expect(meta.description).toBe("Lista de la compra colaborativa en Carrefour")
+    expect(meta.description).toBe(
+      "Lista de la compra colaborativa en Carrefour",
+    )
   })
 })

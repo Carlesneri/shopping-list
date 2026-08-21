@@ -90,7 +90,11 @@ export function CreateNotaForm({ onClose }: { onClose?: () => void }) {
           />
         </div>
 
-        <Button type="submit" disabled={isSubmitDisabled || submitting} className="w-fit">
+        <Button
+          type="submit"
+          disabled={isSubmitDisabled || submitting}
+          className="w-fit"
+        >
           {submitting ? "Creando…" : "Crear nota"}
         </Button>
       </form>

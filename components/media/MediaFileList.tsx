@@ -3,7 +3,11 @@
 import { useState } from "react"
 import { toast } from "sonner"
 import type { MediaKind, StorageEntry } from "@/lib/types"
-import { getMediaEntryUrl, listMediaStorageEntries } from "@/lib/actions/media"
+import {
+  getMediaEntryUrl,
+  listMediaStorageEntries,
+  deleteMediaEntry,
+} from "@/lib/actions/media"
 import { MediaPlayer, type SubtitleOption } from "./MediaPlayer"
 import { MediaFileListItem } from "./MediaFileListItem"
 import type { ActionKind } from "./ActionButtons"
@@ -11,9 +15,11 @@ import type { ActionKind } from "./ActionButtons"
 export function MediaFileList({
   mediaId,
   entries,
+  isAdmin,
 }: {
   mediaId: string
   entries: StorageEntry[]
+  isAdmin: boolean
 }) {
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [loadingAction, setLoadingAction] = useState<{
@@ -102,6 +108,13 @@ export function MediaFileList({
     })
   }
 
+  function handleDeleteFile(entry: StorageEntry) {
+    return runEntryAction(entry, "delete", async () => {
+      await deleteMediaEntry(mediaId, entry.key)
+      toast.success("Archivo eliminado")
+    })
+  }
+
   function handleOpenInVlc(entry: StorageEntry) {
     return runEntryAction(entry, "vlc", async () => {
       const url = await getMediaEntryUrl(mediaId, entry.key)
@@ -158,11 +171,13 @@ export function MediaFileList({
             setSelectedKey(entry.key === selectedKey ? null : entry.key)
           }
           loadingAction={loadingAction}
+          isAdmin={isAdmin}
           onPlay={() => handleOpen(entry)}
           onVlc={() => handleOpenInVlc(entry)}
           onPlaylist={() => handleDownloadM3u(entry)}
           onDownload={() => handleDownloadFile(entry)}
           onCopyUrl={() => handleCopyUrl(entry)}
+          onDelete={() => handleDeleteFile(entry)}
         />
       ))}
       {playing ? (

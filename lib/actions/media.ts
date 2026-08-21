@@ -8,6 +8,7 @@ import {
   S3Client,
   ListObjectsV2Command,
   GetObjectCommand,
+  DeleteObjectCommand,
 } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { getDB } from "@/lib/firebase-admin"
@@ -22,7 +23,20 @@ function detectMediaKind(key: string): MediaKind | undefined {
   const ext = key.split(".").at(-1)?.toLowerCase() ?? ""
   if (["mp4", "mov", "webm", "mkv", "avi", "m4v", "mpeg", "mpg"].includes(ext))
     return "video"
-  if (["jpg", "jpeg", "png", "gif", "webp", "heic", "heif", "avif", "svg", "bmp"].includes(ext))
+  if (
+    [
+      "jpg",
+      "jpeg",
+      "png",
+      "gif",
+      "webp",
+      "heic",
+      "heif",
+      "avif",
+      "svg",
+      "bmp",
+    ].includes(ext)
+  )
     return "image"
   if (["mp3", "wav", "ogg", "aac", "flac", "m4a", "opus", "wma"].includes(ext))
     return "audio"
@@ -129,24 +143,27 @@ export async function getMediaStorageClient(mediaId: string) {
     throw new Error("Sin permisos para acceder a este storage")
   }
 
-  const config = (data.config as {
-    accountId?: string
-    accessKeyId?: string
-    bucket?: string
-    secretEnc?: string
-    S3APIendpoint?: string
-  }) ?? {}
+  const config =
+    (data.config as {
+      accountId?: string
+      accessKeyId?: string
+      bucket?: string
+      secretEnc?: string
+      S3APIendpoint?: string
+    }) ?? {}
 
   const accountId = config.accountId?.trim()
   const accessKeyId = config.accessKeyId?.trim()
   const bucket = config.bucket?.trim()
-  const secretAccessKey = config.secretEnc ? decryptSecret(config.secretEnc) : ""
+  const secretAccessKey = config.secretEnc
+    ? decryptSecret(config.secretEnc)
+    : ""
   const endpoint = normalizeR2Endpoint(config.S3APIendpoint)
 
   if (!accountId || !accessKeyId || !bucket || !secretAccessKey || !endpoint) {
     throw new Error("Falta el endpoint de Cloudflare R2")
   }
-  
+
   const client = new S3Client({
     region: "auto",
     endpoint,
@@ -166,7 +183,6 @@ export async function listMediaStorageEntries(
   prefix = "",
 ): Promise<StorageEntry[]> {
   const { client, bucket } = await getMediaStorageClient(mediaId)
-  
 
   try {
     const response = await client.send(
@@ -179,38 +195,42 @@ export async function listMediaStorageEntries(
     )
 
     const folders = (response.CommonPrefixes ?? [])
-    .map((item) => item.Prefix ?? "")
-    .filter(Boolean)
-    .map((folderKey) => {
-      const name = folderKey.replace(/\/$/, "").split("/").filter(Boolean).at(-1) ?? folderKey
-      return {
-        key: folderKey,
-        name,
-        type: "folder" as const,
-      }
-    })
+      .map((item) => item.Prefix ?? "")
+      .filter(Boolean)
+      .map((folderKey) => {
+        const name =
+          folderKey.replace(/\/$/, "").split("/").filter(Boolean).at(-1) ??
+          folderKey
+        return {
+          key: folderKey,
+          name,
+          type: "folder" as const,
+        }
+      })
 
-  const files = (response.Contents ?? [])
-    .filter((item) => item.Key && item.Key !== prefix)
-    .map((item) => {
-      const key = item.Key ?? ""
-      const name = key.split("/").filter(Boolean).at(-1) ?? key
-      return {
-        key,
-        name,
-        type: "file" as const,
-        mediaKind: detectMediaKind(key),
-        size: item.Size ?? 0,
-        lastModified: item.LastModified ? new Date(item.LastModified) : undefined,
-      }
-    })
+    const files = (response.Contents ?? [])
+      .filter((item) => item.Key && item.Key !== prefix)
+      .map((item) => {
+        const key = item.Key ?? ""
+        const name = key.split("/").filter(Boolean).at(-1) ?? key
+        return {
+          key,
+          name,
+          type: "file" as const,
+          mediaKind: detectMediaKind(key),
+          size: item.Size ?? 0,
+          lastModified: item.LastModified
+            ? new Date(item.LastModified)
+            : undefined,
+        }
+      })
 
     return [...folders, ...files].sort((left, right) => {
       if (left.type !== right.type) return left.type === "folder" ? -1 : 1
       return left.name.localeCompare(right.name)
     })
   } catch (error) {
-    console.error({error})
+    console.error({ error })
     return []
   }
 }
@@ -384,4 +404,29 @@ export async function removeUserFromMedia(mediaId: string, email: string) {
   })
 
   revalidatePath(`/media/${mediaId}/ajustes`)
+}
+
+export async function deleteMediaEntry(mediaId: string, key: string) {
+  const session = await auth()
+  const email = session?.user?.email
+  if (!email) throw new Error("No autenticado")
+
+  const { data } = await getMediaDoc(mediaId)
+  await requireEditor(data, email, "eliminar archivos")
+
+  const { client, bucket } = await getMediaStorageClient(mediaId)
+
+  const trimmedKey = key.trim()
+  if (!trimmedKey || trimmedKey.includes("..")) {
+    throw new Error("Clave de archivo inválida")
+  }
+
+  await client.send(
+    new DeleteObjectCommand({
+      Bucket: bucket,
+      Key: trimmedKey,
+    }),
+  )
+
+  revalidatePath(`/media/${mediaId}`)
 }

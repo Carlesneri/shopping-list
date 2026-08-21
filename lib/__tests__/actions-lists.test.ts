@@ -23,9 +23,13 @@ describe("validateListInput", () => {
     })
   })
   it("throws when title is empty", () => {
-    expect(() => validateListInput("", "Mercadona")).toThrow("El título es requerido")
+    expect(() => validateListInput("", "Mercadona")).toThrow(
+      "El título es requerido",
+    )
   })
   it("throws when market is empty", () => {
-    expect(() => validateListInput("Pan", "   ")).toThrow("El mercado es requerido")
+    expect(() => validateListInput("Pan", "   ")).toThrow(
+      "El mercado es requerido",
+    )
   })
 })

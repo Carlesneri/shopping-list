@@ -16,7 +16,8 @@ export async function addProductToList(
 
   const normalizedName = normalizeProductName(name)
   if (!normalizedName) throw new Error("El nombre no puede estar vacío")
-  if (!Number.isFinite(quantity) || quantity < 1) throw new Error("Cantidad inválida")
+  if (!Number.isFinite(quantity) || quantity < 1)
+    throw new Error("Cantidad inválida")
 
   const db = getDB()
   const listRef = db.collection("lists").doc(listId)
@@ -62,7 +63,8 @@ export async function removeProductFromList(listId: string, productId: string) {
     const snap = await tx.get(listRef)
     if (!snap.exists) throw new Error("Lista no encontrada")
     const data = snap.data()!
-    if (!(data.memberEmails as string[]).includes(email)) throw new Error("Sin acceso a esta lista")
+    if (!(data.memberEmails as string[]).includes(email))
+      throw new Error("Sin acceso a esta lista")
     const products = (data.products ?? []) as { productId: string }[]
     tx.update(listRef, {
       products: products.filter((p) => p.productId !== productId),
@@ -73,7 +75,11 @@ export async function removeProductFromList(listId: string, productId: string) {
   revalidatePath(`/compras/${listId}`)
 }
 
-export async function toggleProductChecked(listId: string, productId: string, checked: boolean) {
+export async function toggleProductChecked(
+  listId: string,
+  productId: string,
+  checked: boolean,
+) {
   const session = await auth()
   const email = session?.user?.email
   if (!email) throw new Error("No autenticado")
@@ -85,10 +91,13 @@ export async function toggleProductChecked(listId: string, productId: string, ch
     const snap = await tx.get(listRef)
     if (!snap.exists) throw new Error("Lista no encontrada")
     const data = snap.data()!
-    if (!(data.memberEmails as string[]).includes(email)) throw new Error("Sin acceso a esta lista")
+    if (!(data.memberEmails as string[]).includes(email))
+      throw new Error("Sin acceso a esta lista")
     const products = (data.products ?? []) as { productId: string }[]
     tx.update(listRef, {
-      products: products.map((p) => p.productId === productId ? { ...p, checked } : p),
+      products: products.map((p) =>
+        p.productId === productId ? { ...p, checked } : p,
+      ),
       updatedAt: FieldValue.serverTimestamp(),
     })
   })
@@ -115,13 +124,21 @@ export async function updateProductQuantity(
     if (!(data.memberEmails as string[]).includes(email)) {
       throw new Error("Sin acceso a esta lista")
     }
-    const products = (data.products ?? []) as { productId: string; name: string; quantity: number }[]
+    const products = (data.products ?? []) as {
+      productId: string
+      name: string
+      quantity: number
+    }[]
     const updated = products.map((p) =>
-      p.productId === productId ? { ...p, quantity: Math.max(1, p.quantity + delta) } : p,
+      p.productId === productId
+        ? { ...p, quantity: Math.max(1, p.quantity + delta) }
+        : p,
     )
-    tx.update(listRef, { products: updated, updatedAt: FieldValue.serverTimestamp() })
+    tx.update(listRef, {
+      products: updated,
+      updatedAt: FieldValue.serverTimestamp(),
+    })
   })
 
   revalidatePath(`/compras/${listId}`)
 }
-

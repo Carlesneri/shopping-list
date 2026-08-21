@@ -5,7 +5,11 @@ import { signInWithCustomToken } from "firebase/auth"
 import { clientAuth } from "@/lib/firebase-client"
 import { getFirebaseToken } from "@/lib/actions/auth"
 
-export function FirebaseAuthProvider({ children }: { children: React.ReactNode }) {
+export function FirebaseAuthProvider({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   const { data: session, status } = useSession()
 
   useEffect(() => {

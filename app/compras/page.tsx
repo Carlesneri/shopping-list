@@ -14,7 +14,10 @@ export default async function ComprasPage() {
       <div className="max-w-lg mx-auto w-full">
         <div className="flex items-center gap-2 mb-4 text-text/70">
           <IconArrowLeft size={18} />
-          <Link href="/" className="font-medium underline underline-offset-4 hover:text-text">
+          <Link
+            href="/"
+            className="font-medium underline underline-offset-4 hover:text-text"
+          >
             Ir al inicio
           </Link>
         </div>

@@ -21,7 +21,8 @@ export async function createNota(formData: FormData) {
   const text = typeof textValue === "string" ? textValue.trim() : ""
   const stay = stayValue === "1"
 
-  if (!title && !text) throw new Error("El título o el contenido son requeridos")
+  if (!title && !text)
+    throw new Error("El título o el contenido son requeridos")
 
   const db = getDB()
 

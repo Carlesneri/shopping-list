@@ -21,15 +21,23 @@ export function NotesPage({
       <div className="max-w-lg mx-auto w-full">
         <div className="flex items-center gap-2 mb-4 text-text/70">
           <IconArrowLeft size={18} />
-          <Link href="/" className="font-medium underline underline-offset-4 hover:text-text">
+          <Link
+            href="/"
+            className="font-medium underline underline-offset-4 hover:text-text"
+          >
             Ir al inicio
           </Link>
         </div>
         <h1 className="text-3xl font-bold mb-3">Notas</h1>
 
         <div className="flex flex-col gap-8">
-          {isCreating && <CreateNotaForm onClose={() => setIsCreating(false)} />}
-          <NotasGrid userEmail={userEmail} onCreateClick={() => setIsCreating(true)} />
+          {isCreating && (
+            <CreateNotaForm onClose={() => setIsCreating(false)} />
+          )}
+          <NotasGrid
+            userEmail={userEmail}
+            onCreateClick={() => setIsCreating(true)}
+          />
         </div>
 
         {!isCreating && (

@@ -9,10 +9,11 @@ import {
   IconMaximize,
   IconPlayerPlay,
   IconPlaylist,
+  IconTrash,
 } from "@tabler/icons-react"
 import type { MediaKind } from "@/lib/types"
 
-export type ActionKind = "play" | "vlc" | "m3u" | "download" | "copy"
+export type ActionKind = "play" | "vlc" | "m3u" | "download" | "copy" | "delete"
 
 interface ActionLoading {
   key: string
@@ -25,12 +26,14 @@ interface Props {
   mediaKind?: MediaKind
   isMkv: boolean
   isFile: boolean
+  isAdmin: boolean
   loading: ActionLoading | null
   onPlay: () => void
   onVlc: () => void
   onPlaylist: () => void
   onDownload: () => void
   onCopyUrl: () => void
+  onDelete: () => void
 }
 
 export function ActionButtons({
@@ -39,12 +42,14 @@ export function ActionButtons({
   mediaKind,
   isMkv,
   isFile,
+  isAdmin,
   loading,
   onPlay,
   onVlc,
   onPlaylist,
   onDownload,
   onCopyUrl,
+  onDelete,
 }: Props) {
   const loadingKind = loading?.key === entryKey ? loading.action : null
 
@@ -145,6 +150,22 @@ export function ActionButtons({
             <IconLoader2 size={20} className="animate-spin" />
           ) : (
             <IconLink size={20} />
+          )}
+        </button>
+      ) : null}
+      {isFile && isAdmin ? (
+        <button
+          type="button"
+          onClick={onDelete}
+          disabled={isBusy}
+          className="shrink-0 cursor-pointer rounded-md p-1.5 text-red-400 transition-colors hover:text-red-600 disabled:cursor-wait disabled:text-red-400/40"
+          title="Eliminar archivo del storage"
+          aria-label={`Eliminar ${entryName}`}
+        >
+          {loadingKind === "delete" ? (
+            <IconLoader2 size={20} className="animate-spin" />
+          ) : (
+            <IconTrash size={20} />
           )}
         </button>
       ) : null}

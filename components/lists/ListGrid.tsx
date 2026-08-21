@@ -57,9 +57,7 @@ export function ListGrid({ userEmail }: { userEmail: string }) {
   }, [userEmail])
 
   if (loading) {
-    return (
-      <Loader className="py-8" />
-    )
+    return <Loader className="py-8" />
   }
 
   if (lists.length === 0) {

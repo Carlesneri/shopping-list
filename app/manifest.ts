@@ -4,8 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "COMPALE — Tu app colaborativa",
     short_name: "COMPALE",
-    description:
-      "Tu app colaborativa, en tiempo real y compartida.",
+    description: "Tu app colaborativa, en tiempo real y compartida.",
     start_url: "/",
     display: "standalone",
     lang: "es",

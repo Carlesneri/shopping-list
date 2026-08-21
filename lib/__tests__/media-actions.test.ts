@@ -49,7 +49,11 @@ describe("listMediaStorageEntries", () => {
     sendMock.mockResolvedValue({
       CommonPrefixes: [{ Prefix: "images/" }, { Prefix: "docs/" }],
       Contents: [
-        { Key: "images/photo.jpg", Size: 120, LastModified: new Date("2024-01-01") },
+        {
+          Key: "images/photo.jpg",
+          Size: 120,
+          LastModified: new Date("2024-01-01"),
+        },
         { Key: "readme.txt", Size: 42, LastModified: new Date("2024-01-02") },
       ],
     })
@@ -60,7 +64,11 @@ describe("listMediaStorageEntries", () => {
 
     expect(entries).toEqual([
       expect.objectContaining({ key: "docs/", name: "docs", type: "folder" }),
-      expect.objectContaining({ key: "images/", name: "images", type: "folder" }),
+      expect.objectContaining({
+        key: "images/",
+        name: "images",
+        type: "folder",
+      }),
       expect.objectContaining({
         key: "images/photo.jpg",
         name: "photo.jpg",

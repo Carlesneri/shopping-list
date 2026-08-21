@@ -117,9 +117,13 @@ export async function renameList(listId: string, title: string) {
   const caller = (snap.data()!.allowedUsers as AllowedUser[]).find(
     (u) => u.email === email,
   )
-  if (caller?.role !== "owner") throw new Error("Solo el propietario puede renombrar la lista")
+  if (caller?.role !== "owner")
+    throw new Error("Solo el propietario puede renombrar la lista")
 
-  await listRef.update({ title: trimmed, updatedAt: FieldValue.serverTimestamp() })
+  await listRef.update({
+    title: trimmed,
+    updatedAt: FieldValue.serverTimestamp(),
+  })
   revalidatePath(`/compras/${listId}`)
   revalidatePath(`/compras/${listId}/ajustes`)
 }

@@ -27,12 +27,16 @@ function makeDB({ isMember = true }: { isMember?: boolean } = {}) {
     }),
   })
 
-  const productDocMock = vi.fn().mockReturnValue({ id: "leche", set: productSet })
+  const productDocMock = vi
+    .fn()
+    .mockReturnValue({ id: "leche", set: productSet })
 
   const db = {
     collection: vi.fn().mockImplementation((col: string) => {
       if (col === "lists") {
-        return { doc: vi.fn().mockReturnValue({ get: listGet, update: listUpdate }) }
+        return {
+          doc: vi.fn().mockReturnValue({ get: listGet, update: listUpdate }),
+        }
       }
       return {
         doc: productDocMock,
@@ -53,32 +57,50 @@ describe("normalizeProductName", () => {
 })
 
 describe("addProductToList", () => {
-  beforeEach(() => { vi.clearAllMocks() })
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
 
   it("throws when not authenticated", async () => {
     vi.mocked(auth).mockResolvedValue(null as any)
-    await expect(addProductToList("list1", "leche", 1)).rejects.toThrow("No autenticado")
+    await expect(addProductToList("list1", "leche", 1)).rejects.toThrow(
+      "No autenticado",
+    )
   })
 
   it("throws when name is blank", async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { email: "user@test.com" } } as any)
-    await expect(addProductToList("list1", "   ", 1)).rejects.toThrow("El nombre no puede estar vacío")
+    vi.mocked(auth).mockResolvedValue({
+      user: { email: "user@test.com" },
+    } as any)
+    await expect(addProductToList("list1", "   ", 1)).rejects.toThrow(
+      "El nombre no puede estar vacío",
+    )
   })
 
   it("throws when quantity is invalid", async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { email: "user@test.com" } } as any)
-    await expect(addProductToList("list1", "leche", 0)).rejects.toThrow("Cantidad inválida")
+    vi.mocked(auth).mockResolvedValue({
+      user: { email: "user@test.com" },
+    } as any)
+    await expect(addProductToList("list1", "leche", 0)).rejects.toThrow(
+      "Cantidad inválida",
+    )
   })
 
   it("throws when caller is not a list member", async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { email: "user@test.com" } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { email: "user@test.com" },
+    } as any)
     const { db } = makeDB({ isMember: false })
     vi.mocked(getDB).mockReturnValue(db as any)
-    await expect(addProductToList("list1", "leche", 1)).rejects.toThrow("Sin acceso")
+    await expect(addProductToList("list1", "leche", 1)).rejects.toThrow(
+      "Sin acceso",
+    )
   })
 
   it("uses set+merge on products doc with normalized name as id", async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { email: "user@test.com" } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { email: "user@test.com" },
+    } as any)
     const { db, productSet, productDocMock } = makeDB()
     vi.mocked(getDB).mockReturnValue(db as any)
 
@@ -86,13 +108,18 @@ describe("addProductToList", () => {
 
     expect(productDocMock).toHaveBeenCalledWith("leche")
     expect(productSet).toHaveBeenCalledWith(
-      { name: "leche", timesSelected: expect.objectContaining({ _increment: 1 }) },
+      {
+        name: "leche",
+        timesSelected: expect.objectContaining({ _increment: 1 }),
+      },
       { merge: true },
     )
   })
 
   it("appends list product with normalized name as productId", async () => {
-    vi.mocked(auth).mockResolvedValue({ user: { email: "user@test.com" } } as any)
+    vi.mocked(auth).mockResolvedValue({
+      user: { email: "user@test.com" },
+    } as any)
     const { db, listUpdate, productDocMock } = makeDB()
     vi.mocked(getDB).mockReturnValue(db as any)
 
@@ -101,7 +128,13 @@ describe("addProductToList", () => {
     expect(productDocMock).toHaveBeenCalledWith("leche")
     expect(listUpdate).toHaveBeenCalledWith({
       products: expect.objectContaining({
-        _arrayUnion: [expect.objectContaining({ productId: "leche", name: "leche", quantity: 3 })],
+        _arrayUnion: [
+          expect.objectContaining({
+            productId: "leche",
+            name: "leche",
+            quantity: 3,
+          }),
+        ],
       }),
       updatedAt: expect.objectContaining({ _serverTimestamp: true }),
     })

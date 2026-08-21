@@ -9,6 +9,8 @@ import { Loader } from "@/components/ui/Loader"
 import { listMediaStorageEntries } from "@/lib/actions/media"
 import type { MediaStorage } from "@/lib/types"
 
+import type { AllowedUser } from "@/lib/types"
+
 interface Props {
   params: Promise<{ id: string }>
 }
@@ -58,11 +60,22 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-async function MediaEntries({ id }: { id: string }) {
+async function MediaEntries({
+  id,
+  userEmail,
+  allowedUsers,
+}: {
+  id: string
+  userEmail: string
+  allowedUsers: AllowedUser[]
+}) {
   const entries = await listMediaStorageEntries(id).catch((error) => {
     console.error(`[media:page] failed to load entries for ${id}`, error)
     return []
   })
+
+  const userEntry = allowedUsers.find((u) => u.email === userEmail)
+  const isAdmin = userEntry?.role === "owner" || userEntry?.role === "admin"
 
   if (entries.length === 0) {
     return (
@@ -72,7 +85,7 @@ async function MediaEntries({ id }: { id: string }) {
     )
   }
 
-  return <MediaFileList mediaId={id} entries={entries} />
+  return <MediaFileList mediaId={id} entries={entries} isAdmin={isAdmin} />
 }
 
 export default async function MediaStoragePage({ params }: Props) {
@@ -97,7 +110,11 @@ export default async function MediaStoragePage({ params }: Props) {
             <Loader size={48} label="Cargando archivos…" className="py-6" />
           }
         >
-          <MediaEntries id={id} />
+          <MediaEntries
+            id={id}
+            userEmail={session.user.email}
+            allowedUsers={media.allowedUsers}
+          />
         </Suspense>
       </div>
     </div>
