@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
 import { collection, query, where, onSnapshot } from "firebase/firestore"
 import { onAuthStateChanged } from "firebase/auth"
 import { toast } from "sonner"
@@ -17,7 +16,6 @@ export function MediaGrid({
   userEmail: string
   onCreateClick?: () => void
 }) {
-  const router = useRouter()
   const [storages, setStorages] = useState<MediaStorage[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -49,9 +47,6 @@ export function MediaGrid({
           )
           setStorages(docs)
           setLoading(false)
-          if (docs.length === 1) {
-            router.push(`/media/${docs[0].id}`)
-          }
         },
         () => {
           toast.error("Error al cargar los storages")
@@ -64,7 +59,7 @@ export function MediaGrid({
       authUnsub()
       firestoreUnsub?.()
     }
-  }, [userEmail, router])
+  }, [userEmail])
 
   if (loading) {
     return <Loader className="py-8" />
