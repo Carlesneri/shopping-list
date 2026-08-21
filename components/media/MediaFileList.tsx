@@ -47,7 +47,7 @@ export function MediaFileList({
       if (newItems.length > 0 && !hasNotified.current) {
         hasNotified.current = true
         toast("Nuevos archivos detectados", {
-          description: `Se encontraron ${newItems.length} archivo(s) nuevo(s) en el storage.`,
+          description: `Se encontraron archivos nuevos en el storage.`,
           duration: Infinity,
           action: {
             label: "Actualizar",
@@ -62,7 +62,7 @@ export function MediaFileList({
 
   useEffect(() => {
     checkForNewItems()
-    const interval = setInterval(checkForNewItems, 60_1000)
+    const interval = setInterval(checkForNewItems, 60_000)
     return () => clearInterval(interval)
   }, [checkForNewItems])
 
