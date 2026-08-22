@@ -1,6 +1,5 @@
 "use server"
 
-import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import { FieldValue } from "firebase-admin/firestore"
 import { revalidatePath } from "next/cache"
@@ -12,11 +11,13 @@ import {
 } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { getDB } from "@/lib/firebase-admin"
-import {
-  validateMediaInput,
-  validateMediaConfigUpdate,
-} from "@/lib/list-validation"
+import { validateMediaInput, validateMediaConfigUpdate } from "@/lib/validation"
 import { decryptSecret, encryptSecret } from "@/lib/crypto"
+import {
+  requireAuth,
+  requireCallerRole,
+  requireMember,
+} from "@/lib/auth-helpers"
 import type { AllowedUser, MediaKind, Role, StorageEntry } from "@/lib/types"
 
 function detectMediaKind(key: string): MediaKind | undefined {
@@ -65,8 +66,7 @@ function normalizeR2Endpoint(value?: string) {
 }
 
 export async function createMediaStorage(formData: FormData) {
-  const session = await auth()
-  if (!session?.user?.email) throw new Error("No autenticado")
+  const { email } = await requireAuth()
 
   const { title, provider, accountId, accessKeyId, secretAccessKey, bucket } =
     validateMediaInput(
@@ -101,7 +101,6 @@ export async function createMediaStorage(formData: FormData) {
 
   const db = getDB()
   const docRef = db.collection("media").doc()
-  const email = session.user.email
 
   await docRef.set({
     title,
@@ -133,15 +132,9 @@ async function getMediaDoc(mediaId: string) {
 }
 
 export async function getMediaStorageClient(mediaId: string) {
-  const session = await auth()
-  const email = session?.user?.email
-  if (!email) throw new Error("No autenticado")
+  const { email } = await requireAuth()
 
-  const { data } = await getMediaDoc(mediaId)
-  const memberEmails = (data.memberEmails as string[] | undefined) ?? []
-  if (!memberEmails.includes(email)) {
-    throw new Error("Sin permisos para acceder a este storage")
-  }
+  const { data } = await requireMember("media", mediaId, email)
 
   const config =
     (data.config as {
@@ -264,20 +257,6 @@ export async function getMediaEntryUrl(
   )
 }
 
-async function requireEditor(
-  data: Record<string, unknown>,
-  email: string,
-  action: string,
-) {
-  const caller = (data.allowedUsers as AllowedUser[]).find(
-    (u) => u.email === email,
-  )
-  if (!caller || !["owner", "admin"].includes(caller.role)) {
-    throw new Error(`Sin permisos para ${action}`)
-  }
-  return caller
-}
-
 export async function updateMediaConfig(
   mediaId: string,
   accountId: string,
@@ -286,9 +265,7 @@ export async function updateMediaConfig(
   bucket: string,
   s3ApiEndpoint?: string,
 ) {
-  const session = await auth()
-  const email = session?.user?.email
-  if (!email) throw new Error("No autenticado")
+  const { email } = await requireAuth()
 
   const config = validateMediaConfigUpdate(
     accountId,
@@ -297,8 +274,13 @@ export async function updateMediaConfig(
     bucket,
   )
 
-  const { ref, data } = await getMediaDoc(mediaId)
-  await requireEditor(data, email, "editar la configuración")
+  const { ref, data } = await requireCallerRole(
+    "media",
+    mediaId,
+    email,
+    ["owner", "admin"],
+    "editar la configuración",
+  )
 
   const currentSecretEnc = (data.config as { secretEnc?: string }).secretEnc
   const currentConfig = (data.config as { S3APIendpoint?: string }) ?? {}
@@ -324,19 +306,18 @@ export async function updateMediaConfig(
 }
 
 export async function renameMediaStorage(mediaId: string, title: string) {
-  const session = await auth()
-  const email = session?.user?.email
-  if (!email) throw new Error("No autenticado")
+  const { email } = await requireAuth()
 
   const trimmed = title.trim()
   if (!trimmed) throw new Error("El nombre no puede estar vacío")
 
-  const { ref, data } = await getMediaDoc(mediaId)
-  const caller = (data.allowedUsers as AllowedUser[]).find(
-    (u) => u.email === email,
+  const { ref } = await requireCallerRole(
+    "media",
+    mediaId,
+    email,
+    ["owner"],
+    "renombrar el storage",
   )
-  if (caller?.role !== "owner")
-    throw new Error("Solo el propietario puede renombrar el storage")
 
   await ref.update({ title: trimmed, updatedAt: FieldValue.serverTimestamp() })
   revalidatePath(`/media/${mediaId}`)
@@ -344,16 +325,15 @@ export async function renameMediaStorage(mediaId: string, title: string) {
 }
 
 export async function deleteMediaStorage(mediaId: string) {
-  const session = await auth()
-  const email = session?.user?.email
-  if (!email) throw new Error("No autenticado")
+  const { email } = await requireAuth()
 
-  const { ref, data } = await getMediaDoc(mediaId)
-  const caller = (data.allowedUsers as AllowedUser[]).find(
-    (u) => u.email === email,
+  const { ref } = await requireCallerRole(
+    "media",
+    mediaId,
+    email,
+    ["owner"],
+    "eliminar el storage",
   )
-  if (caller?.role !== "owner")
-    throw new Error("Solo el propietario puede eliminar el storage")
 
   await ref.delete()
   redirect("/media")
@@ -364,11 +344,15 @@ export async function addUserToMedia(
   email: string,
   role: Role,
 ) {
-  const session = await auth()
-  if (!session?.user?.email) throw new Error("No autenticado")
+  const { email: callerEmail } = await requireAuth()
+  const { ref, data } = await requireCallerRole(
+    "media",
+    mediaId,
+    callerEmail,
+    ["owner", "admin"],
+    "añadir usuarios",
+  )
 
-  const { ref, data } = await getMediaDoc(mediaId)
-  await requireEditor(data, session.user.email, "añadir usuarios")
   if ((data.memberEmails as string[]).includes(email)) {
     throw new Error("Este usuario ya tiene acceso")
   }
@@ -383,11 +367,14 @@ export async function addUserToMedia(
 }
 
 export async function removeUserFromMedia(mediaId: string, email: string) {
-  const session = await auth()
-  if (!session?.user?.email) throw new Error("No autenticado")
-
-  const { ref, data } = await getMediaDoc(mediaId)
-  await requireEditor(data, session.user.email, "eliminar usuarios")
+  const { email: callerEmail } = await requireAuth()
+  const { ref, data } = await requireCallerRole(
+    "media",
+    mediaId,
+    callerEmail,
+    ["owner", "admin"],
+    "eliminar usuarios",
+  )
 
   const target = (data.allowedUsers as AllowedUser[]).find(
     (u) => u.email === email,
@@ -407,12 +394,15 @@ export async function removeUserFromMedia(mediaId: string, email: string) {
 }
 
 export async function deleteMediaEntry(mediaId: string, key: string) {
-  const session = await auth()
-  const email = session?.user?.email
-  if (!email) throw new Error("No autenticado")
+  const { email } = await requireAuth()
 
-  const { data } = await getMediaDoc(mediaId)
-  await requireEditor(data, email, "eliminar archivos")
+  await requireCallerRole(
+    "media",
+    mediaId,
+    email,
+    ["owner", "admin"],
+    "eliminar archivos",
+  )
 
   const { client, bucket } = await getMediaStorageClient(mediaId)
 
@@ -432,12 +422,15 @@ export async function deleteMediaEntry(mediaId: string, key: string) {
 }
 
 export async function deleteMediaFolder(mediaId: string, prefix: string) {
-  const session = await auth()
-  const email = session?.user?.email
-  if (!email) throw new Error("No autenticado")
+  const { email } = await requireAuth()
 
-  const { data } = await getMediaDoc(mediaId)
-  await requireEditor(data, email, "eliminar carpetas")
+  await requireCallerRole(
+    "media",
+    mediaId,
+    email,
+    ["owner", "admin"],
+    "eliminar carpetas",
+  )
 
   const { client, bucket } = await getMediaStorageClient(mediaId)
 

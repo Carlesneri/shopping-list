@@ -1,16 +1,15 @@
 "use server"
 
-import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import { FieldValue } from "firebase-admin/firestore"
 import { revalidatePath } from "next/cache"
 import { getDB } from "@/lib/firebase-admin"
-import { validateListInput } from "@/lib/list-validation"
+import { validateListInput } from "@/lib/validation"
+import { requireAuth, requireCallerRole } from "@/lib/auth-helpers"
 import type { AllowedUser, Role } from "@/lib/types"
 
 export async function createList(formData: FormData) {
-  const session = await auth()
-  if (!session?.user?.email) throw new Error("No autenticado")
+  const { email } = await requireAuth()
 
   const { title, market } = validateListInput(
     formData.get("title") as string,
@@ -18,10 +17,7 @@ export async function createList(formData: FormData) {
   )
 
   const db = getDB()
-
   const docRef = db.collection("lists").doc()
-
-  const email = session.user.email
 
   await docRef.set({
     title,
@@ -37,22 +33,15 @@ export async function createList(formData: FormData) {
 }
 
 export async function addUserToList(listId: string, email: string, role: Role) {
-  const session = await auth()
-  if (!session?.user?.email) throw new Error("No autenticado")
-
-  const db = getDB()
-  const listRef = db.collection("lists").doc(listId)
-  const snap = await listRef.get()
-
-  if (!snap.exists) throw new Error("Lista no encontrada")
-
-  const data = snap.data()!
-  const caller = (data.allowedUsers as AllowedUser[]).find(
-    (u) => u.email === session.user!.email,
+  const { email: callerEmail } = await requireAuth()
+  const { ref: listRef, data } = await requireCallerRole(
+    "lists",
+    listId,
+    callerEmail,
+    ["owner", "admin"],
+    "añadir usuarios",
   )
-  if (!caller || !["owner", "admin"].includes(caller.role)) {
-    throw new Error("Sin permisos para añadir usuarios")
-  }
+
   if ((data.memberEmails as string[]).includes(email)) {
     throw new Error("Este usuario ya tiene acceso")
   }
@@ -67,22 +56,14 @@ export async function addUserToList(listId: string, email: string, role: Role) {
 }
 
 export async function removeUserFromList(listId: string, email: string) {
-  const session = await auth()
-  if (!session?.user?.email) throw new Error("No autenticado")
-
-  const db = getDB()
-  const listRef = db.collection("lists").doc(listId)
-  const snap = await listRef.get()
-
-  if (!snap.exists) throw new Error("Lista no encontrada")
-
-  const data = snap.data()!
-  const caller = (data.allowedUsers as AllowedUser[]).find(
-    (u) => u.email === session.user!.email,
+  const { email: callerEmail } = await requireAuth()
+  const { ref: listRef, data } = await requireCallerRole(
+    "lists",
+    listId,
+    callerEmail,
+    ["owner", "admin"],
+    "eliminar usuarios",
   )
-  if (!caller || !["owner", "admin"].includes(caller.role)) {
-    throw new Error("Sin permisos para eliminar usuarios")
-  }
 
   const target = (data.allowedUsers as AllowedUser[]).find(
     (u) => u.email === email,
@@ -102,23 +83,18 @@ export async function removeUserFromList(listId: string, email: string) {
 }
 
 export async function renameList(listId: string, title: string) {
-  const session = await auth()
-  const email = session?.user?.email
-  if (!email) throw new Error("No autenticado")
+  const { email } = await requireAuth()
 
   const trimmed = title.trim()
   if (!trimmed) throw new Error("El nombre no puede estar vacío")
 
-  const db = getDB()
-  const listRef = db.collection("lists").doc(listId)
-  const snap = await listRef.get()
-  if (!snap.exists) throw new Error("Lista no encontrada")
-
-  const caller = (snap.data()!.allowedUsers as AllowedUser[]).find(
-    (u) => u.email === email,
+  const { ref: listRef } = await requireCallerRole(
+    "lists",
+    listId,
+    email,
+    ["owner"],
+    "renombrar la lista",
   )
-  if (caller?.role !== "owner")
-    throw new Error("Solo el propietario puede renombrar la lista")
 
   await listRef.update({
     title: trimmed,
@@ -129,21 +105,15 @@ export async function renameList(listId: string, title: string) {
 }
 
 export async function deleteList(listId: string) {
-  const session = await auth()
-  if (!session?.user?.email) throw new Error("No autenticado")
+  const { email } = await requireAuth()
 
-  const db = getDB()
-  const listRef = db.collection("lists").doc(listId)
-  const snap = await listRef.get()
-
-  if (!snap.exists) throw new Error("Lista no encontrada")
-
-  const data = snap.data()!
-  const caller = (data.allowedUsers as AllowedUser[]).find(
-    (u) => u.email === session.user!.email,
+  const { ref: listRef } = await requireCallerRole(
+    "lists",
+    listId,
+    email,
+    ["owner"],
+    "eliminar la lista",
   )
-  if (caller?.role !== "owner")
-    throw new Error("Solo el propietario puede eliminar la lista")
 
   await listRef.delete()
   redirect("/compras")

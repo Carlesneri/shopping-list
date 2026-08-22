@@ -1,60 +1,16 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import Link from "next/link"
-import { collection, query, where, onSnapshot } from "firebase/firestore"
-import { onAuthStateChanged } from "firebase/auth"
-import { toast } from "sonner"
-import { db, clientAuth } from "@/lib/firebase-client"
+import { useFirestoreCollection } from "@/lib/hooks/useFirestoreCollection"
 import type { ShoppingList } from "@/lib/types"
 import { Loader } from "@/components/ui/Loader"
 import { ListCard } from "./ListCard"
 
 export function ListGrid({ userEmail }: { userEmail: string }) {
-  const [lists, setLists] = useState<ShoppingList[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    let firestoreUnsub: (() => void) | undefined
-
-    const authUnsub = onAuthStateChanged(clientAuth, (user) => {
-      firestoreUnsub?.()
-      if (!user) {
-        setLoading(false)
-        return
-      }
-
-      const q = query(
-        collection(db, "lists"),
-        where("memberEmails", "array-contains", userEmail),
-      )
-      firestoreUnsub = onSnapshot(
-        q,
-        (snap) => {
-          const docs = snap.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          })) as ShoppingList[]
-          docs.sort(
-            (a, b) =>
-              (b.updatedAt?.seconds ?? 0) - (a.updatedAt?.seconds ?? 0) ||
-              (b.updatedAt?.nanoseconds ?? 0) - (a.updatedAt?.nanoseconds ?? 0),
-          )
-          setLists(docs)
-          setLoading(false)
-        },
-        () => {
-          toast.error("Error al cargar las listas")
-          setLoading(false)
-        },
-      )
-    })
-
-    return () => {
-      authUnsub()
-      firestoreUnsub?.()
-    }
-  }, [userEmail])
+  const { items: lists, loading } = useFirestoreCollection<ShoppingList>(
+    "lists",
+    userEmail,
+  )
 
   if (loading) {
     return <Loader className="py-8" />

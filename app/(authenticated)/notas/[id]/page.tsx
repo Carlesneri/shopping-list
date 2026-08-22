@@ -4,7 +4,7 @@ import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import { getDB } from "@/lib/firebase-admin"
 import { NotaDetail } from "@/components/notas/NotaDetail"
-import { buildNotaMetadata } from "@/lib/list-metadata"
+import { buildNotaMetadata } from "@/lib/metadata"
 import type { Nota } from "@/lib/types"
 
 interface Props {

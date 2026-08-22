@@ -2,17 +2,17 @@
 
 import { FieldValue } from "firebase-admin/firestore"
 import { revalidatePath } from "next/cache"
-import { auth } from "@/auth"
 import { getDB } from "@/lib/firebase-admin"
 import { normalizeProductName } from "@/lib"
+import { requireAuth, requireMember } from "@/lib/auth-helpers"
 
 export async function addProductToList(
   listId: string,
   name: string,
   quantity: number,
 ) {
-  const session = await auth()
-  if (!session?.user?.email) throw new Error("No autenticado")
+  const { email } = await requireAuth()
+  await requireMember("lists", listId, email)
 
   const normalizedName = normalizeProductName(name)
   if (!normalizedName) throw new Error("El nombre no puede estar vacío")
@@ -21,15 +21,6 @@ export async function addProductToList(
 
   const db = getDB()
   const listRef = db.collection("lists").doc(listId)
-  const listSnap = await listRef.get()
-
-  if (!listSnap.exists) throw new Error("Lista no encontrada")
-
-  if (
-    !(listSnap.data()!.memberEmails as string[]).includes(session.user.email)
-  ) {
-    throw new Error("Sin acceso a esta lista")
-  }
 
   const productDocId = normalizedName.replace(/[/.]/g, "-")
   const productRef = db.collection("productos").doc(productDocId)
@@ -52,9 +43,7 @@ export async function addProductToList(
 }
 
 export async function removeProductFromList(listId: string, productId: string) {
-  const session = await auth()
-  const email = session?.user?.email
-  if (!email) throw new Error("No autenticado")
+  const { email } = await requireAuth()
 
   const db = getDB()
   const listRef = db.collection("lists").doc(listId)
@@ -80,9 +69,7 @@ export async function toggleProductChecked(
   productId: string,
   checked: boolean,
 ) {
-  const session = await auth()
-  const email = session?.user?.email
-  if (!email) throw new Error("No autenticado")
+  const { email } = await requireAuth()
 
   const db = getDB()
   const listRef = db.collection("lists").doc(listId)
@@ -110,9 +97,7 @@ export async function updateProductQuantity(
   productId: string,
   delta: number,
 ) {
-  const session = await auth()
-  const email = session?.user?.email
-  if (!email) throw new Error("No autenticado")
+  const { email } = await requireAuth()
 
   const db = getDB()
   const listRef = db.collection("lists").doc(listId)

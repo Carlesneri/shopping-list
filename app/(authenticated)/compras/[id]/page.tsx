@@ -4,7 +4,7 @@ import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import { getDB } from "@/lib/firebase-admin"
 import { ListDetail } from "@/components/lists/ListDetail"
-import { buildListMetadata } from "@/lib/list-metadata"
+import { buildListMetadata } from "@/lib/metadata"
 import type { ShoppingList } from "@/lib/types"
 
 interface Props {

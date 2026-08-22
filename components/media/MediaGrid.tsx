@@ -1,10 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { collection, query, where, onSnapshot } from "firebase/firestore"
-import { onAuthStateChanged } from "firebase/auth"
-import { toast } from "sonner"
-import { db, clientAuth } from "@/lib/firebase-client"
+import { useFirestoreCollection } from "@/lib/hooks/useFirestoreCollection"
 import type { MediaStorage } from "@/lib/types"
 import { Loader } from "@/components/ui/Loader"
 import { MediaCard } from "./MediaCard"
@@ -16,50 +12,10 @@ export function MediaGrid({
   userEmail: string
   onCreateClick?: () => void
 }) {
-  const [storages, setStorages] = useState<MediaStorage[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    let firestoreUnsub: (() => void) | undefined
-
-    const authUnsub = onAuthStateChanged(clientAuth, (user) => {
-      firestoreUnsub?.()
-      if (!user) {
-        setLoading(false)
-        return
-      }
-
-      const q = query(
-        collection(db, "media"),
-        where("memberEmails", "array-contains", userEmail),
-      )
-      firestoreUnsub = onSnapshot(
-        q,
-        (snap) => {
-          const docs = snap.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          })) as MediaStorage[]
-          docs.sort(
-            (a, b) =>
-              (b.updatedAt?.seconds ?? 0) - (a.updatedAt?.seconds ?? 0) ||
-              (b.updatedAt?.nanoseconds ?? 0) - (a.updatedAt?.nanoseconds ?? 0),
-          )
-          setStorages(docs)
-          setLoading(false)
-        },
-        () => {
-          toast.error("Error al cargar los storages")
-          setLoading(false)
-        },
-      )
-    })
-
-    return () => {
-      authUnsub()
-      firestoreUnsub?.()
-    }
-  }, [userEmail])
+  const { items: storages, loading } = useFirestoreCollection<MediaStorage>(
+    "media",
+    userEmail,
+  )
 
   if (loading) {
     return <Loader className="py-8" />

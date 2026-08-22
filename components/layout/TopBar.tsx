@@ -8,53 +8,55 @@ export async function TopBar() {
   const session = await auth()
 
   return (
-    <header className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 bg-background border-b border-black/10 shadow-sm">
-      <Link href="/" className="flex items-center">
-        <Image
-          src="/logo.png"
-          alt="COMPALE"
-          width={327}
-          height={88}
-          priority
-          className="h-10 w-auto"
-        />
-      </Link>
-      {session?.user && (
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            {session.user.image && (
-              <Image
-                src={session.user.image}
-                alt={session.user.name ?? ""}
-                width={36}
-                height={36}
-                className="rounded-full border-2 border-black/10"
-              />
-            )}
-            {session.user.name && (
-              <span className="hidden sm:block text-sm font-semibold text-text/70">
-                {session.user.name.split(" ")[0]}
-              </span>
-            )}
-          </div>
-          <form
-            action={async () => {
-              "use server"
-              await signOut({ redirectTo: "/" })
-            }}
-          >
-            <FabButton
-              type="submit"
-              color="pink"
-              size="sm"
-              title="Cerrar sesión"
-              aria-label="Cerrar sesión"
+    <header className="sticky top-0 z-10 bg-background border-b border-black/10 shadow-sm">
+      <div className="flex items-center justify-between px-4 py-3 max-w-[768px] mx-auto w-full">
+        <Link href="/" className="flex items-center">
+          <Image
+            src="/logo.png"
+            alt="COMPALE"
+            width={327}
+            height={88}
+            priority
+            className="h-10 w-auto"
+          />
+        </Link>
+        {session?.user && (
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              {session.user.image && (
+                <Image
+                  src={session.user.image}
+                  alt={session.user.name ?? ""}
+                  width={36}
+                  height={36}
+                  className="rounded-full border-2 border-black/10"
+                />
+              )}
+              {session.user.name && (
+                <span className="hidden sm:block text-sm font-semibold text-text/70">
+                  {session.user.name.split(" ")[0]}
+                </span>
+              )}
+            </div>
+            <form
+              action={async () => {
+                "use server"
+                await signOut({ redirectTo: "/" })
+              }}
             >
-              <IconLogout size={16} />
-            </FabButton>
-          </form>
-        </div>
-      )}
+              <FabButton
+                type="submit"
+                color="pink"
+                size="sm"
+                title="Cerrar sesión"
+                aria-label="Cerrar sesión"
+              >
+                <IconLogout size={16} />
+              </FabButton>
+            </form>
+          </div>
+        )}
+      </div>
     </header>
   )
 }

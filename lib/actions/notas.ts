@@ -1,16 +1,19 @@
 "use server"
 
-import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import { FieldValue } from "firebase-admin/firestore"
 import { revalidatePath } from "next/cache"
 import { getDB } from "@/lib/firebase-admin"
-import { validateNotaInput } from "@/lib/list-validation"
+import { validateNotaInput } from "@/lib/validation"
+import {
+  requireAuth,
+  requireCallerRole,
+  requireMember,
+} from "@/lib/auth-helpers"
 import type { AllowedUser, Role } from "@/lib/types"
 
 export async function createNota(formData: FormData) {
-  const session = await auth()
-  if (!session?.user?.email) throw new Error("No autenticado")
+  const { email } = await requireAuth()
 
   const titleValue = formData.get("title")
   const textValue = formData.get("text")
@@ -25,10 +28,7 @@ export async function createNota(formData: FormData) {
     throw new Error("El título o el contenido son requeridos")
 
   const db = getDB()
-
   const docRef = db.collection("notas").doc()
-
-  const email = session.user.email
 
   await docRef.set({
     title,
@@ -45,22 +45,15 @@ export async function createNota(formData: FormData) {
 }
 
 export async function addUserToNota(notaId: string, email: string, role: Role) {
-  const session = await auth()
-  if (!session?.user?.email) throw new Error("No autenticado")
-
-  const db = getDB()
-  const notaRef = db.collection("notas").doc(notaId)
-  const snap = await notaRef.get()
-
-  if (!snap.exists) throw new Error("Nota no encontrada")
-
-  const data = snap.data()!
-  const caller = (data.allowedUsers as AllowedUser[]).find(
-    (u) => u.email === session.user!.email,
+  const { email: callerEmail } = await requireAuth()
+  const { ref: notaRef, data } = await requireCallerRole(
+    "notas",
+    notaId,
+    callerEmail,
+    ["owner", "admin"],
+    "añadir usuarios",
   )
-  if (!caller || !["owner", "admin"].includes(caller.role)) {
-    throw new Error("Sin permisos para añadir usuarios")
-  }
+
   if ((data.memberEmails as string[]).includes(email)) {
     throw new Error("Este usuario ya tiene acceso")
   }
@@ -75,22 +68,14 @@ export async function addUserToNota(notaId: string, email: string, role: Role) {
 }
 
 export async function removeUserFromNota(notaId: string, email: string) {
-  const session = await auth()
-  if (!session?.user?.email) throw new Error("No autenticado")
-
-  const db = getDB()
-  const notaRef = db.collection("notas").doc(notaId)
-  const snap = await notaRef.get()
-
-  if (!snap.exists) throw new Error("Nota no encontrada")
-
-  const data = snap.data()!
-  const caller = (data.allowedUsers as AllowedUser[]).find(
-    (u) => u.email === session.user!.email,
+  const { email: callerEmail } = await requireAuth()
+  const { ref: notaRef, data } = await requireCallerRole(
+    "notas",
+    notaId,
+    callerEmail,
+    ["owner", "admin"],
+    "eliminar usuarios",
   )
-  if (!caller || !["owner", "admin"].includes(caller.role)) {
-    throw new Error("Sin permisos para eliminar usuarios")
-  }
 
   const target = (data.allowedUsers as AllowedUser[]).find(
     (u) => u.email === email,
@@ -110,23 +95,18 @@ export async function removeUserFromNota(notaId: string, email: string) {
 }
 
 export async function renameNota(notaId: string, title: string) {
-  const session = await auth()
-  const email = session?.user?.email
-  if (!email) throw new Error("No autenticado")
+  const { email } = await requireAuth()
 
   const trimmed = title.trim()
   if (!trimmed) throw new Error("El nombre no puede estar vacío")
 
-  const db = getDB()
-  const notaRef = db.collection("notas").doc(notaId)
-  const snap = await notaRef.get()
-  if (!snap.exists) throw new Error("Nota no encontrada")
-
-  const caller = (snap.data()!.allowedUsers as AllowedUser[]).find(
-    (u) => u.email === email,
+  const { ref: notaRef } = await requireCallerRole(
+    "notas",
+    notaId,
+    email,
+    ["owner"],
+    "renombrar la nota",
   )
-  if (caller?.role !== "owner")
-    throw new Error("Solo el propietario puede renombrar la nota")
 
   await notaRef.update({
     title: trimmed,
@@ -137,40 +117,23 @@ export async function renameNota(notaId: string, title: string) {
 }
 
 export async function updateNotaText(notaId: string, text: string) {
-  const session = await auth()
-  const email = session?.user?.email
-  if (!email) throw new Error("No autenticado")
-
-  const db = getDB()
-  const notaRef = db.collection("notas").doc(notaId)
-  const snap = await notaRef.get()
-  if (!snap.exists) throw new Error("Nota no encontrada")
-
-  const data = snap.data()!
-  if (!(data.memberEmails as string[]).includes(email)) {
-    throw new Error("Sin acceso a esta nota")
-  }
+  const { email } = await requireAuth()
+  const { ref: notaRef } = await requireMember("notas", notaId, email)
 
   await notaRef.update({ text, updatedAt: FieldValue.serverTimestamp() })
   revalidatePath(`/notas/${notaId}`)
 }
 
 export async function deleteNota(notaId: string) {
-  const session = await auth()
-  if (!session?.user?.email) throw new Error("No autenticado")
+  const { email } = await requireAuth()
 
-  const db = getDB()
-  const notaRef = db.collection("notas").doc(notaId)
-  const snap = await notaRef.get()
-
-  if (!snap.exists) throw new Error("Nota no encontrada")
-
-  const data = snap.data()!
-  const caller = (data.allowedUsers as AllowedUser[]).find(
-    (u) => u.email === session.user!.email,
+  const { ref: notaRef } = await requireCallerRole(
+    "notas",
+    notaId,
+    email,
+    ["owner"],
+    "eliminar la nota",
   )
-  if (caller?.role !== "owner")
-    throw new Error("Solo el propietario puede eliminar la nota")
 
   await notaRef.delete()
   redirect("/notas")
