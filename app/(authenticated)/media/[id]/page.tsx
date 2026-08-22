@@ -6,6 +6,7 @@ import { getDB } from "@/lib/firebase-admin"
 import { MediaDetail } from "@/components/media/MediaDetail"
 import { MediaFileList } from "@/components/media/MediaFileList"
 import { Loader } from "@/components/ui/Loader"
+import { ScrollToTop } from "@/components/ui/ScrollToTop"
 import { listMediaStorageEntries } from "@/lib/actions/media"
 import type { MediaStorage } from "@/lib/types"
 
@@ -117,6 +118,8 @@ export default async function MediaStoragePage({ params }: Props) {
           />
         </Suspense>
       </div>
+
+      <ScrollToTop color="blue" />
     </div>
   )
 }

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { auth } from "@/auth"
 import { FabButton } from "@/components/ui/FabButton"
 import { ListGrid } from "@/components/lists/ListGrid"
+import { ScrollToTop } from "@/components/ui/ScrollToTop"
 import { IconPlus, IconArrowLeft } from "@tabler/icons-react"
 
 export default async function ComprasPage() {
@@ -28,6 +29,7 @@ export default async function ComprasPage() {
             <IconPlus size={28} />
           </FabButton>
         </Link>
+        <ScrollToTop color="purple" />
       </div>
     </div>
   )

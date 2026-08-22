@@ -4,6 +4,7 @@ import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import { getDB } from "@/lib/firebase-admin"
 import { ListDetail } from "@/components/lists/ListDetail"
+import { ScrollToTop } from "@/components/ui/ScrollToTop"
 import { buildListMetadata } from "@/lib/metadata"
 import type { ShoppingList } from "@/lib/types"
 
@@ -62,6 +63,13 @@ export default async function ListPage({ params }: Props) {
   if (!list || !list.memberEmails.includes(session.user.email)) redirect("/")
 
   return (
-    <ListDetail initialList={list} userEmail={session.user.email} listId={id} />
+    <>
+      <ListDetail
+        initialList={list}
+        userEmail={session.user.email}
+        listId={id}
+      />
+      <ScrollToTop color="purple" />
+    </>
   )
 }

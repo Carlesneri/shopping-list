@@ -4,6 +4,7 @@ import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import { getDB } from "@/lib/firebase-admin"
 import { NotaDetail } from "@/components/notas/NotaDetail"
+import { ScrollToTop } from "@/components/ui/ScrollToTop"
 import { buildNotaMetadata } from "@/lib/metadata"
 import type { Nota } from "@/lib/types"
 
@@ -61,6 +62,13 @@ export default async function NotaPage({ params }: Props) {
   if (!nota || !nota.memberEmails.includes(session.user.email)) redirect("/")
 
   return (
-    <NotaDetail initialNota={nota} userEmail={session.user.email} notaId={id} />
+    <>
+      <NotaDetail
+        initialNota={nota}
+        userEmail={session.user.email}
+        notaId={id}
+      />
+      <ScrollToTop color="orange" />
+    </>
   )
 }

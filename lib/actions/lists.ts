@@ -5,10 +5,7 @@ import { FieldValue } from "firebase-admin/firestore"
 import { revalidatePath } from "next/cache"
 import { getDB } from "@/lib/firebase-admin"
 import { validateListInput } from "@/lib/validation"
-import {
-  requireAuth,
-  requireCallerRole,
-} from "@/lib/auth-helpers"
+import { requireAuth, requireCallerRole } from "@/lib/auth-helpers"
 import type { AllowedUser, Role } from "@/lib/types"
 
 export async function createList(formData: FormData) {

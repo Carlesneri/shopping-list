@@ -1,8 +1,5 @@
 import { describe, it, expect } from "vitest"
-import {
-  validateMediaInput,
-  validateMediaConfigUpdate,
-} from "../validation"
+import { validateMediaInput, validateMediaConfigUpdate } from "../validation"
 
 describe("validateMediaInput", () => {
   const valid = {
