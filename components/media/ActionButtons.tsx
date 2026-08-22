@@ -169,6 +169,22 @@ export function ActionButtons({
           )}
         </button>
       ) : null}
+      {!isFile && isAdmin ? (
+        <button
+          type="button"
+          onClick={onDelete}
+          disabled={isBusy}
+          className="shrink-0 cursor-pointer rounded-md p-1.5 text-red-400 transition-colors hover:text-red-600 disabled:cursor-wait disabled:text-red-400/40"
+          title="Eliminar carpeta y todo su contenido"
+          aria-label={`Eliminar ${entryName}`}
+        >
+          {loadingKind === "delete" ? (
+            <IconLoader2 size={20} className="animate-spin" />
+          ) : (
+            <IconTrash size={20} />
+          )}
+        </button>
+      ) : null}
     </div>
   )
 }

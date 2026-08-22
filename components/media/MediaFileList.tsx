@@ -3,19 +3,33 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+import { IconChevronRight, IconSearch } from "@tabler/icons-react"
 import type { MediaKind, StorageEntry } from "@/lib/types"
 import {
   getMediaEntryUrl,
   listMediaStorageEntries,
   deleteMediaEntry,
+  deleteMediaFolder,
 } from "@/lib/actions/media"
 import { MediaPlayer, type SubtitleOption } from "./MediaPlayer"
 import { MediaFileListItem } from "./MediaFileListItem"
 import type { ActionKind } from "./ActionButtons"
 
+function parseBreadcrumbs(path: string) {
+  if (!path) return []
+  return path
+    .replace(/\/$/, "")
+    .split("/")
+    .filter(Boolean)
+    .map((segment, index, arr) => ({
+      label: segment,
+      path: `${arr.slice(0, index + 1).join("/")}/`,
+    }))
+}
+
 export function MediaFileList({
   mediaId,
-  entries,
+  entries: initialEntries,
   isAdmin,
 }: {
   mediaId: string
@@ -29,7 +43,10 @@ export function MediaFileList({
     action: ActionKind
   } | null>(null)
   const hasNotified = useRef(false)
-
+  const [currentPath, setCurrentPath] = useState("")
+  const [entries, setEntries] = useState(initialEntries)
+  const [loadingEntries, setLoadingEntries] = useState(false)
+  const [search, setSearch] = useState("")
   const [playing, setPlaying] = useState<{
     src: string
     title: string
@@ -37,12 +54,40 @@ export function MediaFileList({
     subtitles: SubtitleOption[]
   } | null>(null)
 
+  const breadcrumbs = parseBreadcrumbs(currentPath)
+
+  const filteredEntries = search
+    ? entries.filter((e) => e.name.toLowerCase().includes(search.toLowerCase()))
+    : entries
+
+  const loadEntries = useCallback(
+    async (path: string) => {
+      setLoadingEntries(true)
+      try {
+        const freshEntries = await listMediaStorageEntries(mediaId, path)
+        setEntries(freshEntries)
+      } catch (error) {
+        console.error("[media:navigate] failed to load entries", error)
+        toast.error("Error al cargar el contenido")
+      } finally {
+        setLoadingEntries(false)
+      }
+    },
+    [mediaId],
+  )
+
+  function navigateToFolder(path: string) {
+    setSelectedKey(null)
+    setCurrentPath(path)
+    loadEntries(path)
+  }
+
   const checkForNewItems = useCallback(async () => {
     if (hasNotified.current) return
 
     try {
       const freshEntries = await listMediaStorageEntries(mediaId)
-      const currentKeys = new Set(entries.map((e) => e.key))
+      const currentKeys = new Set(initialEntries.map((e) => e.key))
       const newItems = freshEntries.filter((e) => !currentKeys.has(e.key))
       if (newItems.length > 0 && !hasNotified.current) {
         hasNotified.current = true
@@ -58,7 +103,7 @@ export function MediaFileList({
     } catch (error) {
       console.error("[media:sync] failed to check for new items", error)
     }
-  }, [mediaId, entries, router])
+  }, [mediaId, initialEntries, router])
 
   useEffect(() => {
     checkForNewItems()
@@ -140,10 +185,17 @@ export function MediaFileList({
     })
   }
 
-  function handleDeleteFile(entry: StorageEntry) {
+  function handleDeleteEntry(entry: StorageEntry) {
     return runEntryAction(entry, "delete", async () => {
-      await deleteMediaEntry(mediaId, entry.key)
-      toast.success("Archivo eliminado")
+      if (entry.type === "folder") {
+        await deleteMediaFolder(mediaId, entry.key)
+      } else {
+        await deleteMediaEntry(mediaId, entry.key)
+      }
+      setEntries((prev) => prev.filter((e) => e.key !== entry.key))
+      toast.success(
+        entry.type === "folder" ? "Carpeta eliminada" : "Archivo eliminado",
+      )
     })
   }
 
@@ -194,8 +246,53 @@ export function MediaFileList({
 
   return (
     <div className="flex flex-col gap-2">
+      {breadcrumbs.length > 0 ? (
+        <nav className="flex items-center gap-1 text-sm text-text/60 overflow-x-auto">
+          <button
+            type="button"
+            onClick={() => navigateToFolder("")}
+            className="shrink-0 font-medium text-blue-600 hover:text-blue-800 hover:underline"
+          >
+            Raíz
+          </button>
+          {breadcrumbs.map((crumb, i) => (
+            <span key={crumb.path} className="flex items-center gap-1">
+              <IconChevronRight size={14} className="shrink-0 text-text/40" />
+              {i === breadcrumbs.length - 1 ? (
+                <span className="shrink-0 font-medium text-text">
+                  {crumb.label}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => navigateToFolder(crumb.path)}
+                  className="shrink-0 font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                >
+                  {crumb.label}
+                </button>
+              )}
+            </span>
+          ))}
+        </nav>
+      ) : null}
+      <div className="relative">
+        <IconSearch
+          size={16}
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-text/40"
+        />
+        <input
+          type="text"
+          placeholder="Buscar archivos…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full rounded-md border border-black/10 bg-white py-1.5 pl-9 pr-3 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+        />
+      </div>
+      {loadingEntries ? (
+        <p className="text-sm text-text/50 py-2">Cargando…</p>
+      ) : null}
       <ul className="flex flex-col gap-2">
-        {entries.map((entry) => (
+        {filteredEntries.map((entry) => (
           <MediaFileListItem
             key={entry.key}
             entry={entry}
@@ -210,7 +307,12 @@ export function MediaFileList({
             onPlaylist={() => handleDownloadM3u(entry)}
             onDownload={() => handleDownloadFile(entry)}
             onCopyUrl={() => handleCopyUrl(entry)}
-            onDelete={() => handleDeleteFile(entry)}
+            onDelete={() => handleDeleteEntry(entry)}
+            onFolderClick={
+              entry.type === "folder"
+                ? () => navigateToFolder(entry.key)
+                : undefined
+            }
           />
         ))}
         {playing ? (
@@ -223,6 +325,16 @@ export function MediaFileList({
           />
         ) : null}
       </ul>
+      {search && filteredEntries.length === 0 && !loadingEntries ? (
+        <p className="text-sm text-text/50 py-2 text-center">
+          Ningún elemento coincide con la búsqueda
+        </p>
+      ) : null}
+      {!search && entries.length === 0 && !loadingEntries ? (
+        <p className="text-sm text-text/50 py-2 text-center">
+          No hay ningún elemento disponible
+        </p>
+      ) : null}
     </div>
   )
 }

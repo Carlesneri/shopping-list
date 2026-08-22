@@ -60,6 +60,7 @@ interface MediaFileListItemProps {
   onDownload: () => void
   onCopyUrl: () => void
   onDelete: () => void
+  onFolderClick?: () => void
 }
 
 export function MediaFileListItem({
@@ -74,6 +75,7 @@ export function MediaFileListItem({
   onDownload,
   onCopyUrl,
   onDelete,
+  onFolderClick,
 }: MediaFileListItemProps) {
   const isFile = entry.type === "file"
   const isMkv = entry.key.toLowerCase().endsWith(".mkv")
@@ -93,9 +95,13 @@ export function MediaFileListItem({
               {entry.name}
             </button>
           ) : (
-            <span className="min-w-0 flex-1 truncate text-base font-medium">
+            <button
+              type="button"
+              onClick={onFolderClick}
+              className="min-w-0 flex-1 cursor-pointer truncate text-base font-medium text-start text-blue-600 hover:text-blue-800 hover:underline"
+            >
               {entry.name}
-            </span>
+            </button>
           )}
         </div>
         <div className="flex items-center justify-between gap-3">

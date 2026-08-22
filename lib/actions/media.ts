@@ -430,3 +430,48 @@ export async function deleteMediaEntry(mediaId: string, key: string) {
 
   revalidatePath(`/media/${mediaId}`)
 }
+
+export async function deleteMediaFolder(mediaId: string, prefix: string) {
+  const session = await auth()
+  const email = session?.user?.email
+  if (!email) throw new Error("No autenticado")
+
+  const { data } = await getMediaDoc(mediaId)
+  await requireEditor(data, email, "eliminar carpetas")
+
+  const { client, bucket } = await getMediaStorageClient(mediaId)
+
+  const trimmedPrefix = prefix.trim()
+  if (!trimmedPrefix || trimmedPrefix.includes("..")) {
+    throw new Error("Prefijo de carpeta inválido")
+  }
+
+  let continuationToken: string | undefined
+  do {
+    const response = await client.send(
+      new ListObjectsV2Command({
+        Bucket: bucket,
+        Prefix: trimmedPrefix,
+        ContinuationToken: continuationToken,
+      }),
+    )
+
+    const objects = response.Contents ?? []
+    if (objects.length > 0) {
+      await Promise.all(
+        objects.map((obj) =>
+          client.send(
+            new DeleteObjectCommand({
+              Bucket: bucket,
+              Key: obj.Key!,
+            }),
+          ),
+        ),
+      )
+    }
+
+    continuationToken = response.NextContinuationToken
+  } while (continuationToken)
+
+  revalidatePath(`/media/${mediaId}`)
+}
