@@ -5,7 +5,10 @@ import { FieldValue } from "firebase-admin/firestore"
 import { revalidatePath } from "next/cache"
 import { getDB } from "@/lib/firebase-admin"
 import { validateListInput } from "@/lib/validation"
-import { requireAuth, requireCallerRole } from "@/lib/auth-helpers"
+import {
+  requireAuth,
+  requireCallerRole,
+} from "@/lib/auth-helpers"
 import type { AllowedUser, Role } from "@/lib/types"
 
 export async function createList(formData: FormData) {
@@ -34,6 +37,10 @@ export async function createList(formData: FormData) {
 
 export async function addUserToList(listId: string, email: string, role: Role) {
   const { email: callerEmail } = await requireAuth()
+
+  const validRoles: Role[] = ["member", "admin"]
+  if (!validRoles.includes(role)) throw new Error("Rol inválido")
+
   const { ref: listRef, data } = await requireCallerRole(
     "lists",
     listId,

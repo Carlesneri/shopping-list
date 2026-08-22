@@ -46,6 +46,10 @@ export async function createNota(formData: FormData) {
 
 export async function addUserToNota(notaId: string, email: string, role: Role) {
   const { email: callerEmail } = await requireAuth()
+
+  const validRoles: Role[] = ["member", "admin"]
+  if (!validRoles.includes(role)) throw new Error("Rol inválido")
+
   const { ref: notaRef, data } = await requireCallerRole(
     "notas",
     notaId,

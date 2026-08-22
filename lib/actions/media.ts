@@ -345,6 +345,10 @@ export async function addUserToMedia(
   role: Role,
 ) {
   const { email: callerEmail } = await requireAuth()
+
+  const validRoles: Role[] = ["member", "admin"]
+  if (!validRoles.includes(role)) throw new Error("Rol inválido")
+
   const { ref, data } = await requireCallerRole(
     "media",
     mediaId,

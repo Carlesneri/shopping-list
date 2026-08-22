@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { buildListMetadata } from "../list-metadata"
+import { buildListMetadata } from "../metadata"
 
 describe("buildListMetadata", () => {
   it("uses the list title", () => {

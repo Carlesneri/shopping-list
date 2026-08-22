@@ -36,9 +36,12 @@ const getNota = cache(async (id: string): Promise<Nota | null> => {
 })
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const session = await auth()
+  if (!session?.user?.email) return {}
+
   const { id } = await params
   const nota = await getNota(id)
-  if (!nota) return {}
+  if (!nota || !nota.memberEmails.includes(session.user.email)) return {}
 
   const { title, description } = buildNotaMetadata(nota)
   return {

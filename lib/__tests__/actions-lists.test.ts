@@ -13,7 +13,7 @@ vi.mock("firebase-admin/firestore", () => ({
   },
 }))
 
-import { validateListInput } from "../list-validation"
+import { validateListInput } from "../validation"
 
 describe("validateListInput", () => {
   it("returns trimmed values for valid input", () => {

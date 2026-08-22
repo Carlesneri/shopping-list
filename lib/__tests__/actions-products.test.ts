@@ -72,6 +72,8 @@ describe("addProductToList", () => {
     vi.mocked(auth).mockResolvedValue({
       user: { email: "user@test.com" },
     } as any)
+    const { db } = makeDB()
+    vi.mocked(getDB).mockReturnValue(db as any)
     await expect(addProductToList("list1", "   ", 1)).rejects.toThrow(
       "El nombre no puede estar vacío",
     )
@@ -81,6 +83,8 @@ describe("addProductToList", () => {
     vi.mocked(auth).mockResolvedValue({
       user: { email: "user@test.com" },
     } as any)
+    const { db } = makeDB()
+    vi.mocked(getDB).mockReturnValue(db as any)
     await expect(addProductToList("list1", "leche", 0)).rejects.toThrow(
       "Cantidad inválida",
     )
@@ -93,7 +97,7 @@ describe("addProductToList", () => {
     const { db } = makeDB({ isMember: false })
     vi.mocked(getDB).mockReturnValue(db as any)
     await expect(addProductToList("list1", "leche", 1)).rejects.toThrow(
-      "Sin acceso",
+      "Sin permisos para acceder a este documento",
     )
   })
 

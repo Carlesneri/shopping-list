@@ -37,9 +37,12 @@ const getList = cache(async (id: string): Promise<ShoppingList | null> => {
 })
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const session = await auth()
+  if (!session?.user?.email) return {}
+
   const { id } = await params
   const list = await getList(id)
-  if (!list) return {}
+  if (!list || !list.memberEmails.includes(session.user.email)) return {}
 
   const { title, description } = buildListMetadata(list)
   return {

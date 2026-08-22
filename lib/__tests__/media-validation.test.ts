@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest"
 import {
   validateMediaInput,
   validateMediaConfigUpdate,
-} from "../list-validation"
+} from "../validation"
 
 describe("validateMediaInput", () => {
   const valid = {
