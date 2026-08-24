@@ -127,3 +127,52 @@ export async function updateProductQuantity(
 
   revalidatePath(`/compras/${listId}`)
 }
+
+export async function updateProduct(
+  listId: string,
+  productId: string,
+  name: string,
+  quantity: number,
+) {
+  const { email } = await requireAuth()
+  await requireMember("lists", listId, email)
+
+  const normalizedName = normalizeProductName(name)
+  if (!normalizedName) throw new Error("El nombre no puede estar vacío")
+  if (!Number.isFinite(quantity) || quantity < 1)
+    throw new Error("Cantidad inválida")
+
+  const db = getDB()
+  const listRef = db.collection("lists").doc(listId)
+
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(listRef)
+    if (!snap.exists) throw new Error("Lista no encontrada")
+    const data = snap.data()!
+    if (!(data.memberEmails as string[]).includes(email))
+      throw new Error("Sin acceso a esta lista")
+    const products = (data.products ?? []) as {
+      productId: string
+      name: string
+      quantity: number
+    }[]
+    const updated = products.map((p) =>
+      p.productId === productId
+        ? { ...p, name: normalizedName, quantity }
+        : p,
+    )
+    tx.update(listRef, {
+      products: updated,
+      updatedAt: FieldValue.serverTimestamp(),
+    })
+  })
+
+  const productDocId = normalizedName.replace(/[/.]/g, "-")
+  const productRef = db.collection("productos").doc(productDocId)
+  await productRef.set(
+    { name: normalizedName, timesSelected: FieldValue.increment(1) },
+    { merge: true },
+  )
+
+  revalidatePath(`/compras/${listId}`)
+}

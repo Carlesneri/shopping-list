@@ -2,36 +2,52 @@
 
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
-import { addProductToList } from "@/lib/actions/products"
+import { addProductToList, updateProduct } from "@/lib/actions/products"
 import { Button } from "@/components/ui/Button"
 import { FabButton } from "@/components/ui/FabButton"
+import type { ListProduct } from "@/lib/types"
 
 interface Props {
   listId: string
   onClose: () => void
+  productToEdit?: ListProduct | null
 }
 
-export function AddProductForm({ listId, onClose }: Props) {
+export function AddProductForm({
+  listId,
+  onClose,
+  productToEdit,
+}: Props) {
   const [name, setName] = useState("")
   const [quantity, setQuantity] = useState(1)
   const [loading, setLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const isEditing = !!productToEdit
 
   useEffect(() => {
+    if (productToEdit) {
+      setName(productToEdit.name)
+      setQuantity(productToEdit.quantity)
+    } else {
+      setName("")
+      setQuantity(1)
+    }
     inputRef.current?.focus()
-  }, [])
+  }, [productToEdit])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     try {
-      await addProductToList(listId, name, quantity)
-      setName("")
-      setQuantity(1)
+      if (isEditing && productToEdit) {
+        await updateProduct(listId, productToEdit.productId, name, quantity)
+      } else {
+        await addProductToList(listId, name, quantity)
+      }
       onClose()
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Error al añadir producto",
+        err instanceof Error ? err.message : isEditing ? "Error al editar producto" : "Error al añadir producto",
       )
     } finally {
       setLoading(false)
@@ -43,7 +59,9 @@ export function AddProductForm({ listId, onClose }: Props) {
       onSubmit={handleSubmit}
       className="flex flex-col gap-3 p-4 border-2 border-black rounded-md bg-white"
     >
-      <h2 className="font-bold text-lg">Añadir producto</h2>
+      <h2 className="font-bold text-lg">
+        {isEditing ? "Editar producto" : "Añadir producto"}
+      </h2>
       <input
         ref={inputRef}
         type="text"
@@ -92,7 +110,13 @@ export function AddProductForm({ listId, onClose }: Props) {
           Cancelar
         </Button>
         <Button type="submit" disabled={loading} className="flex-1">
-          {loading ? "Añadiendo…" : "Añadir"}
+          {loading
+            ? isEditing
+              ? "Guardando…"
+              : "Añadiendo…"
+            : isEditing
+            ? "Guardar"
+            : "Añadir"}
         </Button>
       </div>
     </form>

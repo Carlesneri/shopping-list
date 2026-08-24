@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { toast } from "sonner"
 import { db, clientAuth } from "@/lib/firebase-client"
-import type { ShoppingList } from "@/lib/types"
+import type { ShoppingList, ListProduct } from "@/lib/types"
 import { FabButton } from "@/components/ui/FabButton"
 import { ShareButton } from "@/components/ui/ShareButton"
 import { AddProductForm } from "@/components/lists/AddProductForm"
@@ -33,6 +33,7 @@ interface Props {
 export function ListDetail({ initialList, userEmail, listId }: Props) {
   const [list, setList] = useState<ShoppingList>(initialList)
   const [isFormOpen, setIsFormOpen] = useState(false)
+  const [editingProduct, setEditingProduct] = useState<ListProduct | null>(null)
   const router = useRouter()
 
   // Optimistic layer over the live `list.products`. Each handler dispatches an
@@ -178,7 +179,11 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
         <div className="mb-6">
           <AddProductForm
             listId={listId}
-            onClose={() => setIsFormOpen(false)}
+            onClose={() => {
+              setIsFormOpen(false)
+              setEditingProduct(null)
+            }}
+            productToEdit={editingProduct}
           />
         </div>
       )}
@@ -188,6 +193,10 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
         <ul className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-x-4 gap-y-2">
           {products.map((item, index) => {
             const checked = item.checked ?? false
+            const handleEdit = () => {
+              setEditingProduct(item)
+              setIsFormOpen(true)
+            }
             return (
               <li
                 key={`${item.productId}-${index}`}
@@ -215,7 +224,8 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
                   </div>
                 </label>
                 <span
-                  className={`font-semibold capitalize transition-all ${checked ? "line-through opacity-50" : ""}`}
+                  onClick={handleEdit}
+                  className={`font-semibold capitalize transition-all cursor-pointer ${checked ? "line-through opacity-50" : ""}`}
                 >
                   {item.name}
                 </span>
