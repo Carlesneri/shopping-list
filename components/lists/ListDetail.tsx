@@ -276,7 +276,7 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") handleEdit()
                   }}
-                  className={`font-semibold capitalize transition-all ${checked ? "line-through opacity-50" : ""} text-left w-full p-0`}
+                  className={`font-semibold capitalize transition-all ${checked ? "line-through opacity-50" : ""} text-left w-full p-0 cursor-pointer`}
                 >
                   {item.name}
                 </button>
