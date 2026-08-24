@@ -5,7 +5,7 @@ import { twMerge } from "tailwind-merge"
 // Full literal class strings (incl. arbitrary `shadow-[…]` values) so Tailwind's
 // JIT scanner can detect them — shadow shades match the palette in globals.css.
 export const buttonVariants = cva(
-  "font-bold rounded-md px-4 py-2 cursor-pointer transition-transform disabled:opacity-40 disabled:cursor-not-allowed disabled:translate-y-0 disabled:shadow-none",
+  "font-bold rounded-2xl px-5 py-3 cursor-pointer transition-transform disabled:opacity-40 disabled:cursor-not-allowed disabled:translate-y-0 disabled:shadow-none",
   {
     variants: {
       variant: {

@@ -77,6 +77,18 @@ export type StorageEntryType = "file" | "folder"
 
 export type MediaKind = "video" | "image" | "audio"
 
+export type ShortcutType = "list" | "nota" | "storage"
+
+export interface Shortcut {
+  id: string
+  type: ShortcutType
+  title: string
+  targetId: string
+  color: string
+  icon: string
+  createdAt: { seconds: number; nanoseconds: number }
+}
+
 export interface StorageEntry {
   key: string
   name: string

@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useState, useOptimistic, startTransition } from "react"
+import { useEffect, useState, useOptimistic, startTransition, useCallback } from "react"
 import { doc, onSnapshot } from "firebase/firestore"
 import { onAuthStateChanged } from "firebase/auth"
 import { useRouter } from "next/navigation"
@@ -15,6 +15,7 @@ import {
   removeProductFromList,
   toggleProductChecked,
 } from "@/lib/actions/products"
+import { addShortcut, removeShortcut, isShortcut as checkIsShortcut } from "@/lib/actions/shortcuts"
 import {
   IconSettings,
   IconPlus,
@@ -22,6 +23,8 @@ import {
   IconBasket,
   IconCheck,
   IconTrash,
+  IconPin,
+  IconPinFilled,
 } from "@tabler/icons-react"
 
 interface Props {
@@ -34,7 +37,41 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
   const [list, setList] = useState<ShoppingList>(initialList)
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<ListProduct | null>(null)
+  const [isShortcut, setIsShortcut] = useState(false)
+  const [shortcutLoading, setShortcutLoading] = useState(false)
   const router = useRouter()
+
+  const checkShortcut = useCallback(async () => {
+    try {
+      const result = await checkIsShortcut("list", listId)
+      setIsShortcut(result)
+    } catch (err) {
+      console.error("Error checking shortcut:", err)
+    }
+  }, [listId])
+
+  useEffect(() => {
+    checkShortcut()
+  }, [checkShortcut])
+
+  async function handleShortcutToggle() {
+    setShortcutLoading(true)
+    try {
+      if (isShortcut) {
+        await removeShortcut("list", listId)
+        setIsShortcut(false)
+        toast.success("Acceso directo eliminado")
+      } else {
+        await addShortcut("list", listId, list.title, "purple", "shopping-cart")
+        setIsShortcut(true)
+        toast.success("Acceso directo añadido al inicio")
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al actualizar acceso directo")
+    } finally {
+      setShortcutLoading(false)
+    }
+  }
 
   // Optimistic layer over the live `list.products`. Each handler dispatches an
   // optimistic update inside a transition; React shows it immediately and
@@ -164,6 +201,16 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
           <p className="text-text/50 text-sm mt-0.5">{list.market}</p>
         </div>
         <div className="flex items-center gap-2">
+          <FabButton
+            type="button"
+            color={isShortcut ? "purple" : "blue"}
+            size="sm"
+            onClick={handleShortcutToggle}
+            disabled={shortcutLoading}
+            aria-label={isShortcut ? "Eliminar acceso directo" : "Añadir acceso directo al inicio"}
+          >
+            {isShortcut ? <IconPinFilled size={18} /> : <IconPin size={18} />}
+          </FabButton>
           <ShareButton path={`/compras/${listId}`} color="blue" />
           {canShare && (
             <Link href={`/compras/${listId}/ajustes`}>
@@ -223,12 +270,16 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
                     )}
                   </div>
                 </label>
-                <span
+                <button
+                  type="button"
                   onClick={handleEdit}
-                  className={`font-semibold capitalize transition-all cursor-pointer ${checked ? "line-through opacity-50" : ""}`}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") handleEdit()
+                  }}
+                  className={`font-semibold capitalize transition-all ${checked ? "line-through opacity-50" : ""} text-left w-full p-0`}
                 >
                   {item.name}
-                </span>
+                </button>
                 <div
                   className={`flex items-center rounded-full bg-blue text-white shadow-[0_3px_0_0_#2e6aad] transition-opacity ${checked ? "opacity-50" : ""}`}
                 >

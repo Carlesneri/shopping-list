@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useCallback } from "react"
 import { doc, onSnapshot } from "firebase/firestore"
 import { onAuthStateChanged } from "firebase/auth"
 import { useRouter } from "next/navigation"
@@ -10,7 +10,8 @@ import type { Nota } from "@/lib/types"
 import { FabButton } from "@/components/ui/FabButton"
 import { ShareButton } from "@/components/ui/ShareButton"
 import { updateNotaText } from "@/lib/actions/notas"
-import { IconSettings, IconArrowLeft } from "@tabler/icons-react"
+import { addShortcut, removeShortcut, isShortcut as checkIsShortcut } from "@/lib/actions/shortcuts"
+import { IconSettings, IconArrowLeft, IconPin, IconPinFilled } from "@tabler/icons-react"
 
 interface Props {
   initialNota: Nota
@@ -24,10 +25,45 @@ export function NotaDetail({ initialNota, userEmail, notaId }: Props) {
   const [, setNota] = useState<Nota>(initialNota)
   const [draft, setDraft] = useState(initialNota.text ?? "")
   const [saving, setSaving] = useState(false)
+  const [isShortcut, setIsShortcut] = useState(false)
+  const [shortcutLoading, setShortcutLoading] = useState(false)
 
   const dirtyRef = useRef(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const router = useRouter()
+
+  const checkShortcut = useCallback(async () => {
+    try {
+      const result = await checkIsShortcut("nota", notaId)
+      setIsShortcut(result)
+    } catch (err) {
+      console.error("Error checking shortcut:", err)
+    }
+  }, [notaId])
+
+  useEffect(() => {
+    checkShortcut()
+  }, [checkShortcut])
+
+  async function handleShortcutToggle() {
+    setShortcutLoading(true)
+    try {
+      const title = initialNota.title?.trim() || "Nota sin título"
+      if (isShortcut) {
+        await removeShortcut("nota", notaId)
+        setIsShortcut(false)
+        toast.success("Acceso directo eliminado")
+      } else {
+        await addShortcut("nota", notaId, title, "orange", "file-text")
+        setIsShortcut(true)
+        toast.success("Acceso directo añadido al inicio")
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al actualizar acceso directo")
+    } finally {
+      setShortcutLoading(false)
+    }
+  }
 
   async function flushSave(text: string) {
     setSaving(true)
@@ -135,6 +171,16 @@ export function NotaDetail({ initialNota, userEmail, notaId }: Props) {
       <div className="flex items-start justify-between mb-6">
         <h1 className="text-2xl font-bold leading-tight">{title}</h1>
         <div className="flex items-center gap-2">
+          <FabButton
+            type="button"
+            color={isShortcut ? "orange" : "blue"}
+            size="sm"
+            onClick={handleShortcutToggle}
+            disabled={shortcutLoading}
+            aria-label={isShortcut ? "Eliminar acceso directo" : "Añadir acceso directo al inicio"}
+          >
+            {isShortcut ? <IconPinFilled size={18} /> : <IconPin size={18} />}
+          </FabButton>
           <ShareButton path={`/notas/${notaId}`} color="blue" />
           {canShare && (
             <Link href={`/notas/${notaId}/ajustes`}>

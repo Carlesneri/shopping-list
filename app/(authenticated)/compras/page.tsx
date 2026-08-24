@@ -22,7 +22,7 @@ export default async function ComprasPage() {
             Ir al inicio
           </Link>
         </div>
-        <h1 className="text-3xl font-bold mb-3">Compras</h1>
+        <h1 className="text-3xl font-bold mb-3">Listas</h1>
         <ListGrid userEmail={session.user.email} />
         <Link href="/compras/nueva-lista" className="fixed bottom-6 right-6">
           <FabButton type="button" color="purple">

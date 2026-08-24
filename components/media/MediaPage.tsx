@@ -22,7 +22,7 @@ export function MediaPage({ userEmail }: { userEmail: string }) {
             Ir al inicio
           </Link>
         </div>
-        <h1 className="text-3xl font-bold mb-3">Storages</h1>
+        <h1 className="text-3xl font-bold mb-3">Media</h1>
         <p className="text-text/60 text-sm mb-6">
           Añade almacenamiento en la nube, de momento solo Cloudflare R2.
         </p>
