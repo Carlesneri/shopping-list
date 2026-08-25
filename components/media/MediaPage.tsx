@@ -2,8 +2,8 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { IconPlus, IconArrowLeft } from "@tabler/icons-react"
-import { FabButton } from "@/components/ui/FabButton"
+import { IconArrowLeft } from "@tabler/icons-react"
+import { AddButton } from "@/components/ui/AddButton"
 import { CreateStorageForm } from "@/components/media/CreateStorageForm"
 import { MediaGrid } from "@/components/media/MediaGrid"
 
@@ -37,17 +37,7 @@ export function MediaPage({ userEmail }: { userEmail: string }) {
           />
         </div>
 
-        {!isCreating && (
-          <FabButton
-            type="button"
-            onClick={() => setIsCreating(true)}
-            className="fixed bottom-6 right-6"
-            color="blue"
-            aria-label="Añadir storage"
-          >
-            <IconPlus size={28} />
-          </FabButton>
-        )}
+        {!isCreating && <AddButton color="blue" onClick={() => setIsCreating(true)} fixed />}
       </div>
     </div>
   )

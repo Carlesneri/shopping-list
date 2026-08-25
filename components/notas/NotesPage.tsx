@@ -2,8 +2,8 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { IconPlus, IconArrowLeft } from "@tabler/icons-react"
-import { FabButton } from "@/components/ui/FabButton"
+import { IconArrowLeft } from "@tabler/icons-react"
+import { AddButton } from "@/components/ui/AddButton"
 import { CreateNotaForm } from "@/components/notas/CreateNotaForm"
 import { NotasGrid } from "@/components/notas/NotasGrid"
 
@@ -40,17 +40,7 @@ export function NotesPage({
           />
         </div>
 
-        {!isCreating && (
-          <FabButton
-            type="button"
-            onClick={() => setIsCreating(true)}
-            className="fixed bottom-6 right-6"
-            color="orange"
-            aria-label="Crear nota"
-          >
-            <IconPlus size={28} />
-          </FabButton>
-        )}
+        {!isCreating && <AddButton color="orange" onClick={() => setIsCreating(true)} fixed />}
       </div>
     </div>
   )

@@ -9,6 +9,7 @@ import { db, clientAuth } from "@/lib/firebase-client"
 import type { ShoppingList, ListProduct } from "@/lib/types"
 import { FabButton } from "@/components/ui/FabButton"
 import { ShareButton } from "@/components/ui/ShareButton"
+import { AddButton } from "@/components/ui/AddButton"
 import { AddProductForm } from "@/components/lists/AddProductForm"
 import {
   updateProductQuantity,
@@ -18,7 +19,6 @@ import {
 import { addShortcut, removeShortcut, isShortcut as checkIsShortcut } from "@/lib/actions/shortcuts"
 import {
   IconSettings,
-  IconPlus,
   IconArrowLeft,
   IconBasket,
   IconCheck,
@@ -326,15 +326,7 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
         </div>
       )}
 
-      <div className="fixed bottom-6 right-6">
-        <FabButton
-          type="button"
-          color="blue"
-          onClick={() => setIsFormOpen((v) => !v)}
-        >
-          <IconPlus size={28} />
-        </FabButton>
-      </div>
+      <AddButton color="blue" onClick={() => setIsFormOpen((v) => !v)} fixed/>
     </div>
   )
 }

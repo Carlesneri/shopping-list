@@ -7,7 +7,7 @@ export default function NewListPage() {
   return (
     <div className="px-4 py-6 max-w-lg mx-auto w-full">
       <Link
-        href="/"
+        href="/compras"
         className="flex items-center gap-1 text-text/60 mb-6 hover:text-text transition-colors"
       >
         <IconArrowLeft size={18} />

@@ -1,10 +1,10 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import { auth } from "@/auth"
-import { FabButton } from "@/components/ui/FabButton"
+import { AddButton } from "@/components/ui/AddButton"
 import { ListGrid } from "@/components/lists/ListGrid"
 import { ScrollToTop } from "@/components/ui/ScrollToTop"
-import { IconPlus, IconArrowLeft } from "@tabler/icons-react"
+import { IconArrowLeft } from "@tabler/icons-react"
 
 export default async function ComprasPage() {
   const session = await auth()
@@ -24,11 +24,7 @@ export default async function ComprasPage() {
         </div>
         <h1 className="text-3xl font-bold mb-3">Listas</h1>
         <ListGrid userEmail={session.user.email} />
-        <Link href="/compras/nueva-lista" className="fixed bottom-6 right-6">
-          <FabButton type="button" color="purple">
-            <IconPlus size={28} />
-          </FabButton>
-        </Link>
+        <AddButton color="purple" href="/compras/nueva-lista" fixed />
         <ScrollToTop color="purple" />
       </div>
     </div>
