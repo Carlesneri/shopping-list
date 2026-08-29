@@ -12,6 +12,7 @@ import {
   IconTrash,
 } from "@tabler/icons-react"
 import type { MediaKind } from "@/lib/types"
+import { isVideoNativelyUnsupported } from "@/lib/media-utils"
 
 export type ActionKind = "play" | "vlc" | "m3u" | "download" | "copy" | "delete"
 
@@ -24,7 +25,7 @@ interface Props {
   entryKey: string
   entryName: string
   mediaKind?: MediaKind
-  isMkv: boolean
+  isUnsupportedVideo: boolean
   isFile: boolean
   isAdmin: boolean
   loading: ActionLoading | null
@@ -40,7 +41,7 @@ export function ActionButtons({
   entryKey,
   entryName,
   mediaKind,
-  isMkv,
+  isUnsupportedVideo: isUnsupportedVideoProp,
   isFile,
   isAdmin,
   loading,
@@ -56,10 +57,13 @@ export function ActionButtons({
   const isBusy = loading !== null
   const btn =
     "shrink-0 cursor-pointer rounded-md p-1.5 text-blue-400 transition-colors hover:text-blue-600 disabled:cursor-wait disabled:text-blue-400/40"
+  const isUnsupportedVideo =
+    (mediaKind === "video" && isUnsupportedVideoProp) ||
+    (mediaKind === "video" && isVideoNativelyUnsupported(entryKey))
 
   return (
     <div className="ml-auto flex items-center gap-2">
-      {mediaKind && !(mediaKind === "video" && isMkv) ? (
+      {mediaKind && !isUnsupportedVideo ? (
         <button
           type="button"
           onClick={onPlay}

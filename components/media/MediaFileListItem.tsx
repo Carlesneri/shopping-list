@@ -8,6 +8,7 @@ import {
   IconVideo,
 } from "@tabler/icons-react"
 import type { MediaKind, StorageEntry } from "@/lib/types"
+import { isVideoNativelyUnsupported } from "@/lib/media-utils"
 import { ActionButtons, type ActionKind } from "./ActionButtons"
 
 const MEDIA_TYPE_LABELS: Record<MediaKind, string> = {
@@ -78,7 +79,7 @@ export function MediaFileListItem({
   onFolderClick,
 }: MediaFileListItemProps) {
   const isFile = entry.type === "file"
-  const isMkv = entry.key.toLowerCase().endsWith(".mkv")
+  const isUnsupportedVideo = isVideoNativelyUnsupported(entry.key)
 
   return (
     <li className="rounded-md border border-black/10 bg-white text-sm">
@@ -114,7 +115,7 @@ export function MediaFileListItem({
             entryKey={entry.key}
             entryName={entry.name}
             mediaKind={entry.mediaKind}
-            isMkv={isMkv}
+            isUnsupportedVideo={isUnsupportedVideo}
             isFile={isFile}
             isAdmin={isAdmin}
             loading={loadingAction}

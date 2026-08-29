@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { IconChevronRight, IconSearch } from "@tabler/icons-react"
 import type { MediaKind, StorageEntry } from "@/lib/types"
+import { isVideoNativelyUnsupported } from "@/lib/media-utils"
 import {
   getMediaEntryUrl,
   listMediaStorageEntries,
@@ -230,6 +231,12 @@ export function MediaFileList({
   function handleOpen(entry: StorageEntry) {
     const kind = entry.mediaKind
     if (!kind) return
+    if (kind === "video" && isVideoNativelyUnsupported(entry.key)) {
+      toast.error(
+        `El formato ${entry.key.split(".").pop()?.toUpperCase()} no se puede reproducir en el navegador. Usa VLC, Playlist o Descargar.`,
+      )
+      return
+    }
     return runEntryAction(entry, "play", async () => {
       const [src, subtitles] = await Promise.all([
         getMediaEntryUrl(mediaId, entry.key),
