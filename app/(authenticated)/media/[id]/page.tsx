@@ -10,7 +10,7 @@ import { ScrollToTop } from "@/components/ui/ScrollToTop"
 import { listMediaStorageEntries } from "@/lib/actions/media"
 import type { MediaStorage } from "@/lib/types"
 
-import type { AllowedUser } from "@/lib/types"
+import type { AllowedUser, StorageEntry } from "@/lib/types"
 
 interface Props {
   params: Promise<{ id: string }>
@@ -70,13 +70,31 @@ async function MediaEntries({
   userEmail: string
   allowedUsers: AllowedUser[]
 }) {
-  const entries = await listMediaStorageEntries(id).catch((error) => {
+  let entries: StorageEntry[] = []
+  let loadError: string | null = null
+  try {
+    entries = await listMediaStorageEntries(id)
+  } catch (error) {
     console.error(`[media:page] failed to load entries for ${id}`, error)
-    return []
-  })
+    loadError =
+      error instanceof Error
+        ? error.message
+        : "No se pudo cargar el contenido del bucket."
+  }
 
   const userEntry = allowedUsers.find((u) => u.email === userEmail)
   const isAdmin = userEntry?.role === "owner" || userEntry?.role === "admin"
+
+  if (loadError) {
+    return (
+      <MediaFileList
+        mediaId={id}
+        entries={[]}
+        isAdmin={isAdmin}
+        initialError={loadError}
+      />
+    )
+  }
 
   if (entries.length === 0) {
     return (

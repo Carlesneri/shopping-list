@@ -32,10 +32,12 @@ export function MediaFileList({
   mediaId,
   entries: initialEntries,
   isAdmin,
+  initialError,
 }: {
   mediaId: string
   entries: StorageEntry[]
   isAdmin: boolean
+  initialError?: string | null
 }) {
   const router = useRouter()
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
@@ -57,6 +59,12 @@ export function MediaFileList({
 
   const breadcrumbs = parseBreadcrumbs(currentPath)
 
+  useEffect(() => {
+    if (initialError) {
+      toast.error(initialError)
+    }
+  }, [initialError])
+
   const filteredEntries = search
     ? entries.filter((e) => e.name.toLowerCase().includes(search.toLowerCase()))
     : entries
@@ -69,7 +77,11 @@ export function MediaFileList({
         setEntries(freshEntries)
       } catch (error) {
         console.error("[media:navigate] failed to load entries", error)
-        toast.error("Error al cargar el contenido")
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Error al cargar el contenido",
+        )
       } finally {
         setLoadingEntries(false)
       }
@@ -162,7 +174,11 @@ export function MediaFileList({
       await run()
     } catch (error) {
       console.error(`[media:${action}] failed for ${entry.key}`, error)
-      toast.error("No se pudo completar la acción")
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "No se pudo completar la acción",
+      )
     } finally {
       setLoadingAction(null)
     }

@@ -224,7 +224,22 @@ export async function listMediaStorageEntries(
     })
   } catch (error) {
     console.error({ error })
-    return []
+    const message = error instanceof Error ? error.message : String(error)
+    if (
+      message.includes("TimeoutError") ||
+      message.includes("timeout") ||
+      message.includes("NetworkingError")
+    ) {
+      throw new Error(
+        "Timeout al conectar con el storage. Verifica tu conexión o la configuración del bucket.",
+      )
+    }
+    if (message.includes("AccessDenied") || message.includes("403")) {
+      throw new Error(
+        "Acceso denegado al bucket. Verifica las credenciales o la configuración de IP.",
+      )
+    }
+    throw new Error("No se pudo cargar el contenido del bucket.")
   }
 }
 
