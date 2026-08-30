@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import ReactPlayer from "react-player"
 import { IconAlertTriangle, IconX } from "@tabler/icons-react"
 import type { MediaKind } from "@/lib/types"
 import { isVideoNativelyUnsupported } from "@/lib/media-utils"
@@ -117,14 +116,16 @@ export function MediaPlayer({ src, title, kind, subtitles, onClose }: Props) {
           </div>
         ) : (
           <div className="aspect-video w-full">
-            <ReactPlayer
+            {/* native <video> without crossOrigin to avoid CORS blocking on R2 presigned URLs.
+                Tracks are injected via videoEl and work without CORS when crossOrigin is absent. */}
+            {/* biome-ignore lint/a11y/useMediaCaption: captions are injected dynamically via track elements */}
+            <video
               ref={setVideoEl}
               src={src}
-              crossOrigin="anonymous"
               controls
-              playing
-              width="100%"
-              height="100%"
+              autoPlay
+              playsInline
+              className="h-full w-full"
               onError={() => setHasError(true)}
             />
           </div>
