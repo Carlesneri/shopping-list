@@ -268,7 +268,7 @@ export async function getMediaEntryUrl(
           }
         : {}),
     }),
-    { expiresIn: 60 * 60 * 6 },
+    { expiresIn: 7 * 24 * 60 * 60 }, // 7 days
   )
 }
 
