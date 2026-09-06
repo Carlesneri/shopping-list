@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react"
 import { IconAlertTriangle, IconX } from "@tabler/icons-react"
 import type { MediaKind } from "@/lib/types"
-import { isVideoNativelyUnsupported } from "@/lib/media-utils"
 
 export interface SubtitleOption {
   label: string
@@ -24,8 +23,6 @@ export function MediaPlayer({ src, title, kind, subtitles, onClose }: Props) {
     subtitles[0]?.src ?? null,
   )
   const [hasError, setHasError] = useState(false)
-  const isUnsupportedVideo =
-    kind === "video" && isVideoNativelyUnsupported(title)
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -100,18 +97,15 @@ export function MediaPlayer({ src, title, kind, subtitles, onClose }: Props) {
             {/* biome-ignore lint/a11y/useMediaCaption: audio has no caption tracks */}
             <audio src={src} controls autoPlay className="w-full" />
           </div>
-        ) : isUnsupportedVideo || hasError ? (
+        ) : hasError ? (
           <div className="flex flex-col items-center justify-center gap-3 bg-zinc-900 px-6 py-10 text-center">
             <IconAlertTriangle size={32} className="text-amber-400" />
             <p className="text-sm font-medium text-white">
-              {isUnsupportedVideo
-                ? `El formato ${title.split(".").pop()?.toUpperCase()} no se puede reproducir directamente en el navegador`
-                : "No se pudo reproducir el vídeo en el navegador"}
+              No se pudo reproducir el vídeo en el navegador
             </p>
             <p className="max-w-md text-xs text-white/60">
-              Este formato no es compatible con la reproducción HTML5. Usa los
-              botones “Abrir en VLC”, “Playlist” o “Descargar” del listado para
-              reproducirlo en un reproductor externo.
+              Usa los botones "Abrir en VLC", "Playlist" o "Descargar" del
+              listado para reproducirlo en un reproductor externo.
             </p>
           </div>
         ) : (
@@ -130,7 +124,7 @@ export function MediaPlayer({ src, title, kind, subtitles, onClose }: Props) {
             />
           </div>
         )}
-        {kind === "video" && !isUnsupportedVideo && !hasError && subtitles.length > 0 ? (
+        {kind === "video" && !hasError && subtitles.length > 0 ? (
           <div className="flex flex-wrap items-center gap-2 px-4 py-3">
             <span className="text-xs text-white/60">Subtítulos</span>
             <button

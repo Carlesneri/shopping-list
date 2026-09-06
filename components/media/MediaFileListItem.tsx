@@ -8,7 +8,6 @@ import {
   IconVideo,
 } from "@tabler/icons-react"
 import type { MediaKind, StorageEntry } from "@/lib/types"
-import { isVideoNativelyUnsupported } from "@/lib/media-utils"
 import { ActionButtons, type ActionKind } from "./ActionButtons"
 
 const MEDIA_TYPE_LABELS: Record<MediaKind, string> = {
@@ -57,7 +56,6 @@ interface MediaFileListItemProps {
   isAdmin: boolean
   onPlay: () => void
   onVlc: () => void
-  onPlaylist: () => void
   onDownload: () => void
   onCopyUrl: () => void
   onDelete: () => void
@@ -72,14 +70,12 @@ export function MediaFileListItem({
   isAdmin,
   onPlay,
   onVlc,
-  onPlaylist,
   onDownload,
   onCopyUrl,
   onDelete,
   onFolderClick,
 }: MediaFileListItemProps) {
   const isFile = entry.type === "file"
-  const isUnsupportedVideo = isVideoNativelyUnsupported(entry.key)
 
   return (
     <li className="rounded-md border border-black/10 bg-white text-sm">
@@ -115,13 +111,11 @@ export function MediaFileListItem({
             entryKey={entry.key}
             entryName={entry.name}
             mediaKind={entry.mediaKind}
-            isUnsupportedVideo={isUnsupportedVideo}
             isFile={isFile}
             isAdmin={isAdmin}
             loading={loadingAction}
             onPlay={onPlay}
             onVlc={onVlc}
-            onPlaylist={onPlaylist}
             onDownload={onDownload}
             onCopyUrl={onCopyUrl}
             onDelete={onDelete}

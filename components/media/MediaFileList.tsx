@@ -184,10 +184,6 @@ export function MediaFileList({
     }
   }
 
-  function handleDownloadM3u(entry: StorageEntry) {
-    openPlaylist(entry)
-  }
-
   function handleCopyUrl(entry: StorageEntry) {
     return runEntryAction(entry, "copy", async () => {
       const url = await getMediaEntryUrl(mediaId, entry.key)
@@ -247,15 +243,13 @@ export function MediaFileList({
   function handleOpen(entry: StorageEntry) {
     const kind = entry.mediaKind
     if (!kind) return
-    if (kind === "video" && isVideoNativelyUnsupported(entry.key)) {
-      toast.error(
-        `El formato ${entry.key.split(".").pop()?.toUpperCase()} no se puede reproducir en el navegador. Usa VLC, Playlist o Descargar.`,
-      )
-      return
-    }
     return runEntryAction(entry, "play", async () => {
+      const needsTranscode =
+        kind === "video" && isVideoNativelyUnsupported(entry.key)
       const [src, subtitles] = await Promise.all([
-        getMediaEntryUrl(mediaId, entry.key),
+        needsTranscode
+          ? `/api/transcode?id=${encodeURIComponent(mediaId)}&key=${encodeURIComponent(entry.key)}`
+          : getMediaEntryUrl(mediaId, entry.key),
         kind === "video" ? resolveSubtitles(entry) : Promise.resolve([]),
       ])
       setPlaying({
@@ -327,7 +321,6 @@ export function MediaFileList({
             isAdmin={isAdmin}
             onPlay={() => handleOpen(entry)}
             onVlc={() => handleOpenInVlc(entry)}
-            onPlaylist={() => handleDownloadM3u(entry)}
             onDownload={() => handleDownloadFile(entry)}
             onCopyUrl={() => handleCopyUrl(entry)}
             onDelete={() => handleDeleteEntry(entry)}

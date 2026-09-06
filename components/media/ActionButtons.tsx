@@ -8,13 +8,12 @@ import {
   IconLoader2,
   IconMaximize,
   IconPlayerPlay,
-  IconPlaylist,
   IconTrash,
 } from "@tabler/icons-react"
 import type { MediaKind } from "@/lib/types"
 import { isVideoNativelyUnsupported } from "@/lib/media-utils"
 
-export type ActionKind = "play" | "vlc" | "m3u" | "download" | "copy" | "delete"
+export type ActionKind = "play" | "vlc" | "download" | "copy" | "delete"
 
 interface ActionLoading {
   key: string
@@ -25,13 +24,11 @@ interface Props {
   entryKey: string
   entryName: string
   mediaKind?: MediaKind
-  isUnsupportedVideo: boolean
   isFile: boolean
   isAdmin: boolean
   loading: ActionLoading | null
   onPlay: () => void
   onVlc: () => void
-  onPlaylist: () => void
   onDownload: () => void
   onCopyUrl: () => void
   onDelete: () => void
@@ -41,13 +38,11 @@ export function ActionButtons({
   entryKey,
   entryName,
   mediaKind,
-  isUnsupportedVideo: isUnsupportedVideoProp,
   isFile,
   isAdmin,
   loading,
   onPlay,
   onVlc,
-  onPlaylist,
   onDownload,
   onCopyUrl,
   onDelete,
@@ -55,20 +50,23 @@ export function ActionButtons({
   const loadingKind = loading?.key === entryKey ? loading.action : null
 
   const isBusy = loading !== null
-  const btn =
-    "shrink-0 cursor-pointer rounded-md p-1.5 text-blue-400 transition-colors hover:text-blue-600 disabled:cursor-wait disabled:text-blue-400/40"
+  const baseBtn =
+    "shrink-0 cursor-pointer rounded-md p-1.5 transition-colors disabled:cursor-wait"
   const isUnsupportedVideo =
-    (mediaKind === "video" && isUnsupportedVideoProp) ||
-    (mediaKind === "video" && isVideoNativelyUnsupported(entryKey))
+    mediaKind === "video" && isVideoNativelyUnsupported(entryKey)
+  const playBtn = isUnsupportedVideo
+    ? `${baseBtn} text-emerald-500 hover:text-emerald-700 disabled:text-emerald-500/40`
+    : `${baseBtn} text-blue-400 hover:text-blue-600 disabled:text-blue-400/40`
+  const btn = `${baseBtn} text-blue-400 hover:text-blue-600 disabled:text-blue-400/40`
 
   return (
     <div className="ml-auto flex items-center gap-2">
-      {mediaKind && !isUnsupportedVideo ? (
+      {mediaKind ? (
         <button
           type="button"
           onClick={onPlay}
           disabled={isBusy}
-          className={btn}
+          className={playBtn}
           title={
             mediaKind === "image"
               ? "Ver imagen en pantalla completa"
@@ -109,22 +107,7 @@ export function ActionButtons({
           )}
         </button>
       ) : null}
-      {mediaKind === "video" ? (
-        <button
-          type="button"
-          onClick={onPlaylist}
-          disabled={isBusy}
-          className={btn}
-          title="Descargar playlist .m3u para abrir en VLC"
-          aria-label={`Descargar playlist de ${entryName}`}
-        >
-          {loadingKind === "m3u" ? (
-            <IconLoader2 size={20} className="animate-spin" />
-          ) : (
-            <IconPlaylist size={20} />
-          )}
-        </button>
-      ) : null}
+
       {mediaKind ? (
         <button
           type="button"
