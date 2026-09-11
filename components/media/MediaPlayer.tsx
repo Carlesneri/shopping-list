@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { IconAlertTriangle, IconX } from "@tabler/icons-react"
+import { IconAlertTriangle, IconLoader2, IconX } from "@tabler/icons-react"
+import Hls from "hls.js"
 import type { MediaKind } from "@/lib/types"
 
 export interface SubtitleOption {
@@ -23,6 +24,9 @@ export function MediaPlayer({ src, title, kind, subtitles, onClose }: Props) {
     subtitles[0]?.src ?? null,
   )
   const [hasError, setHasError] = useState(false)
+  const [hlsReady, setHlsReady] = useState(false)
+  const isHls = src.includes("/api/hls") || src.endsWith(".m3u8")
+  const useHlsJs = isHls && Hls.isSupported()
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -31,6 +35,88 @@ export function MediaPlayer({ src, title, kind, subtitles, onClose }: Props) {
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
   }, [onClose])
+
+  // HLS.js attachment for VOD seekable playback (fixes growing timeline)
+  useEffect(() => {
+    setHlsReady(false)
+    setHasError(false)
+  }, [src])
+
+  useEffect(() => {
+    if (!videoEl || kind !== "video" || !isHls || hasError) return
+    const canPlay = videoEl.canPlayType("application/vnd.apple.mpegurl")
+    const supported = Hls.isSupported()
+
+    // Prefer hls.js when supported (handles auth via xhrSetup), fallback to native
+    if (supported) {
+      // use hls.js
+    } else if (canPlay) {
+      const onReady = () => setHlsReady(true)
+      const onError = () => setHasError(true)
+      videoEl.addEventListener("canplay", onReady, { once: true })
+      videoEl.addEventListener("loadedmetadata", onReady, { once: true })
+      videoEl.addEventListener("error", onError, { once: true })
+      if (videoEl.readyState >= 1) setHlsReady(true)
+      videoEl.play().catch(() => {})
+      return () => {
+        videoEl.removeEventListener("canplay", onReady)
+        videoEl.removeEventListener("loadedmetadata", onReady)
+        videoEl.removeEventListener("error", onError)
+      }
+    } else {
+      setHasError(true)
+      return
+    }
+    const hls = new Hls({
+      enableWorker: true,
+      maxBufferLength: 60,
+      maxMaxBufferLength: 120,
+      // Progressive event playlist should start at 0, not live edge
+      startPosition: 0,
+      liveSyncDurationCount: 1,
+      liveMaxLatencyDurationCount: 2,
+      // Authenticated HLS endpoint requires cookies (same-origin)
+      xhrSetup: (xhr) => {
+        xhr.withCredentials = true
+      },
+    })
+    hls.attachMedia(videoEl)
+    hls.on(Hls.Events.MEDIA_ATTACHED, () => hls.loadSource(src))
+    if (hls.media) hls.loadSource(src)
+
+    const onManifest = (_: unknown, data: { levels?: unknown[] }) => {
+      setHlsReady(true)
+      // Force start at 0 for event (live) playlists
+      try {
+        hls.startLoad(0)
+        if (videoEl.currentTime > 1) videoEl.currentTime = 0
+      } catch {}
+      videoEl.play().catch(() => {})
+    }
+    const onLevel = () => setHlsReady(true)
+    hls.on(Hls.Events.MANIFEST_PARSED, onManifest)
+    hls.on(Hls.Events.LEVEL_LOADED, onLevel)
+    const readyTimeout = setTimeout(() => setHlsReady(true), 8000)
+    hls.on(Hls.Events.ERROR, (_event, data) => {
+      if (data.fatal) {
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+          hls.startLoad()
+          setTimeout(() => {
+            if (!videoEl.readyState) setHasError(true)
+          }, 10000)
+        } else {
+          hls.destroy()
+          setHasError(true)
+        }
+      }
+    })
+    return () => {
+      clearTimeout(readyTimeout)
+      hls.destroy()
+      hls.off(Hls.Events.MANIFEST_PARSED, onManifest)
+      hls.off(Hls.Events.LEVEL_LOADED, onLevel)
+    }
+  }, [videoEl, src, kind, isHls, hasError])
 
   useEffect(() => {
     if (!videoEl) return
@@ -109,19 +195,36 @@ export function MediaPlayer({ src, title, kind, subtitles, onClose }: Props) {
             </p>
           </div>
         ) : (
-          <div className="aspect-video w-full">
+          <div className="aspect-video w-full relative bg-black">
             {/* native <video> without crossOrigin to avoid CORS blocking on R2 presigned URLs.
                 Tracks are injected via videoEl and work without CORS when crossOrigin is absent. */}
-            {/* biome-ignore lint/a11y/useMediaCaption: captions are injected dynamically via track elements */}
-            <video
-              ref={setVideoEl}
-              src={src}
-              controls
-              autoPlay
-              playsInline
-              className="h-full w-full"
-              onError={() => setHasError(true)}
-            />
+            {isHls && useHlsJs ? (
+              // biome-ignore lint/a11y/useMediaCaption: captions are injected dynamically via track elements
+              <video
+                ref={setVideoEl}
+                controls
+                playsInline
+                className="h-full w-full"
+                onError={() => setHasError(true)}
+              />
+            ) : (
+              // biome-ignore lint/a11y/useMediaCaption: captions are injected dynamically via track elements
+              <video
+                ref={setVideoEl}
+                src={src}
+                controls
+                playsInline
+                className="h-full w-full"
+                onError={() => setHasError(true)}
+                onCanPlay={() => isHls && setHlsReady(true)}
+              />
+            )}
+            {isHls && !hasError && !hlsReady ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80">
+                <IconLoader2 size={28} className="animate-spin text-white/80" />
+                <p className="text-xs text-white/70">Cargando vídeo HLS…</p>
+              </div>
+            ) : null}
           </div>
         )}
         {kind === "video" && !hasError && subtitles.length > 0 ? (

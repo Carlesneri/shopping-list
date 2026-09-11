@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
     ],
   },
   outputFileTracingIncludes: {
-    "/api/transcode": ["./node_modules/ffmpeg-static/ffmpeg"],
+    "/api/hls": ["./node_modules/ffmpeg-static/ffmpeg"],
   },
   async redirects() {
     return [

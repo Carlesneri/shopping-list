@@ -8,6 +8,7 @@ import {
   ListObjectsV2Command,
   GetObjectCommand,
   DeleteObjectCommand,
+  DeleteObjectsCommand,
 } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { getDB } from "@/lib/firebase-admin"
@@ -19,6 +20,7 @@ import {
   requireMember,
 } from "@/lib/auth-helpers"
 import type { AllowedUser, MediaKind, Role, StorageEntry } from "@/lib/types"
+import { getHlsPrefix } from "@/lib/hls-utils"
 
 function detectMediaKind(key: string): MediaKind | undefined {
   const ext = key.split(".").at(-1)?.toLowerCase() ?? ""
@@ -437,6 +439,37 @@ export async function deleteMediaEntry(mediaId: string, key: string) {
     }),
   )
 
+  // Best-effort: purge HLS cache uploaded to .hls-cache/<key>/
+  try {
+    const prefix = getHlsPrefix(trimmedKey)
+    let token: string | undefined
+    const toDelete: string[] = []
+    do {
+      const listed = await client.send(
+        new ListObjectsV2Command({
+          Bucket: bucket,
+          Prefix: prefix,
+          ContinuationToken: token,
+        }),
+      )
+      for (const obj of listed.Contents ?? []) {
+        if (obj.Key) toDelete.push(obj.Key)
+      }
+      token = listed.NextContinuationToken
+    } while (token)
+    for (let i = 0; i < toDelete.length; i += 1000) {
+      const batch = toDelete.slice(i, i + 1000)
+      await client.send(
+        new DeleteObjectsCommand({
+          Bucket: bucket,
+          Delete: { Objects: batch.map((Key) => ({ Key })) },
+        }),
+      )
+    }
+  } catch (e) {
+    console.warn("[media:delete] failed to purge HLS cache for", trimmedKey, e)
+  }
+
   revalidatePath(`/media/${mediaId}`)
 }
 
@@ -484,6 +517,38 @@ export async function deleteMediaFolder(mediaId: string, prefix: string) {
 
     continuationToken = response.NextContinuationToken
   } while (continuationToken)
+
+  // Best-effort: purge HLS caches for any video under this prefix.
+  // HLS artifacts live at .hls-cache/<originalKey>/… so prefix is `.hls-cache/<trimmedPrefix>`
+  try {
+    const hlsPrefix = `.hls-cache/${trimmedPrefix}`
+    let hlsToken: string | undefined
+    const hlsKeys: string[] = []
+    do {
+      const listed = await client.send(
+        new ListObjectsV2Command({
+          Bucket: bucket,
+          Prefix: hlsPrefix,
+          ContinuationToken: hlsToken,
+        }),
+      )
+      for (const obj of listed.Contents ?? []) {
+        if (obj.Key) hlsKeys.push(obj.Key)
+      }
+      hlsToken = listed.NextContinuationToken
+    } while (hlsToken)
+    for (let i = 0; i < hlsKeys.length; i += 1000) {
+      const batch = hlsKeys.slice(i, i + 1000)
+      await client.send(
+        new DeleteObjectsCommand({
+          Bucket: bucket,
+          Delete: { Objects: batch.map((Key) => ({ Key })) },
+        }),
+      )
+    }
+  } catch (e) {
+    console.warn("[media:deleteFolder] failed to purge HLS cache for", trimmedPrefix, e)
+  }
 
   revalidatePath(`/media/${mediaId}`)
 }

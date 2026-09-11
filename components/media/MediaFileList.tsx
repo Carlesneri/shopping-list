@@ -15,6 +15,7 @@ import {
 import { MediaPlayer, type SubtitleOption } from "./MediaPlayer"
 import { MediaFileListItem } from "./MediaFileListItem"
 import type { ActionKind } from "./ActionButtons"
+import { HlsConsentDialog } from "./HlsConsentDialog"
 
 function parseBreadcrumbs(path: string) {
   if (!path) return []
@@ -55,9 +56,43 @@ export function MediaFileList({
     title: string
     kind: MediaKind
     subtitles: SubtitleOption[]
+    key: string
   } | null>(null)
+  const [pendingConsentEntry, setPendingConsentEntry] =
+    useState<StorageEntry | null>(null)
 
   const breadcrumbs = parseBreadcrumbs(currentPath)
+
+  // Stop progressive HLS upload when page is reloaded/closed — only upload while player is open
+  useEffect(() => {
+    if (!playing || !playing.src.includes("/api/hls")) return
+    const keyToCancel = playing.key
+    const cancelHls = () => {
+      const url = `/api/hls?id=${encodeURIComponent(mediaId)}&key=${encodeURIComponent(keyToCancel)}`
+      try {
+        // keepalive ensures it fires even during unload
+        fetch(url, { method: "DELETE", keepalive: true }).catch(() => {})
+      } catch {}
+      // also try sendBeacon as fallback (beacon is POST)
+      try {
+        if (navigator.sendBeacon) {
+          const blob = new Blob([], { type: "text/plain" })
+          navigator.sendBeacon(url, blob)
+        }
+      } catch {}
+    }
+    const handleBeforeUnload = () => cancelHls()
+    const handlePageHide = () => cancelHls()
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    window.addEventListener("pagehide", handlePageHide)
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload)
+      window.removeEventListener("pagehide", handlePageHide)
+      // SPA navigation / component unmount while still playing — also cancel
+      // (this cleanup runs with the *previous* playing value)
+      cancelHls()
+    }
+  }, [playing, mediaId])
 
   useEffect(() => {
     if (initialError) {
@@ -240,26 +275,76 @@ export function MediaFileList({
     })
   }
 
-  function handleOpen(entry: StorageEntry) {
+  async function executeHlsPlay(entry: StorageEntry) {
     const kind = entry.mediaKind
     if (!kind) return
     return runEntryAction(entry, "play", async () => {
-      const needsTranscode =
-        kind === "video" && isVideoNativelyUnsupported(entry.key)
-      const [src, subtitles] = await Promise.all([
-        needsTranscode
-          ? `/api/transcode?id=${encodeURIComponent(mediaId)}&key=${encodeURIComponent(entry.key)}`
-          : getMediaEntryUrl(mediaId, entry.key),
-        kind === "video" ? resolveSubtitles(entry) : Promise.resolve([]),
-      ])
-      setPlaying({
-        src,
-        title: entry.name,
-        kind,
-        subtitles,
-      })
+      const hlsUrl = `/api/hls?id=${encodeURIComponent(mediaId)}&key=${encodeURIComponent(entry.key)}`
+      // Preflight triggers server-side progressive HLS generation; MediaPlayer shows loading overlay
+      const subtitlesPromise = kind === "video" ? resolveSubtitles(entry) : Promise.resolve([] as SubtitleOption[])
+      const preflight = await fetch(hlsUrl, { method: "GET" })
+      if (!preflight.ok) {
+        const text = await preflight.text().catch(() => "")
+        throw new Error(text || `Error HLS ${preflight.status}`)
+      }
+      const subtitles = await subtitlesPromise
+      setPlaying({ src: hlsUrl, title: entry.name, kind, subtitles, key: entry.key })
     })
   }
+
+
+
+  function handleOpen(entry: StorageEntry) {
+    const kind = entry.mediaKind
+    if (!kind) return
+
+    const needsTranscode =
+      kind === "video" && isVideoNativelyUnsupported(entry.key)
+
+    if (!needsTranscode) {
+      return runEntryAction(entry, "play", async () => {
+        const [src, subtitles] = await Promise.all([
+          getMediaEntryUrl(mediaId, entry.key),
+          kind === "video" ? resolveSubtitles(entry) : Promise.resolve([]),
+        ])
+        setPlaying({ src, title: entry.name, kind, subtitles, key: entry.key })
+      })
+    }
+
+    // Always ask for cache consent (no remember) — required by policy
+    setPendingConsentEntry(entry)
+  }
+
+  function handleConsentApprove() {
+    const entry = pendingConsentEntry
+    setPendingConsentEntry(null)
+    if (entry) void executeHlsPlay(entry)
+  }
+
+  function handleConsentDeny() {
+    setPendingConsentEntry(null)
+    toast.info("Reproducción cancelada", {
+      description: "No se usará almacenamiento en caché. HLS es ahora la única opción para este formato.",
+    })
+  }
+
+  const handleClosePlayer = useCallback(async () => {
+    if (!playing) return
+    const keyToCancel = playing.key
+    const isHls = playing.src.includes("/api/hls")
+    setPlaying(null)
+    // If HLS progressive transcode is still running, abort it server-side
+    if (isHls && keyToCancel) {
+      try {
+        await fetch(
+          `/api/hls?id=${encodeURIComponent(mediaId)}&key=${encodeURIComponent(keyToCancel)}`,
+          { method: "DELETE" },
+        )
+      } catch {
+        // ignore cancel errors
+      }
+    }
+  }, [playing, mediaId])
 
   return (
     <div className="flex flex-col gap-2">
@@ -337,7 +422,7 @@ export function MediaFileList({
             title={playing.title}
             kind={playing.kind}
             subtitles={playing.subtitles}
-            onClose={() => setPlaying(null)}
+            onClose={handleClosePlayer}
           />
         ) : null}
       </ul>
@@ -350,6 +435,14 @@ export function MediaFileList({
         <p className="text-sm text-text/50 py-2 text-center">
           No hay ningún elemento disponible
         </p>
+      ) : null}
+      {pendingConsentEntry ? (
+        <HlsConsentDialog
+          fileName={pendingConsentEntry.name}
+          onApprove={handleConsentApprove}
+          onDeny={handleConsentDeny}
+          onClose={() => setPendingConsentEntry(null)}
+        />
       ) : null}
     </div>
   )
