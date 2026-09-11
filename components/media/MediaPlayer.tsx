@@ -69,12 +69,19 @@ export function MediaPlayer({ src, title, kind, subtitles, onClose }: Props) {
     }
     const hls = new Hls({
       enableWorker: true,
-      maxBufferLength: 60,
-      maxMaxBufferLength: 120,
-      // Progressive event playlist should start at 0, not live edge
+      // Larger buffers so progressive segments don't starve playback
+      maxBufferLength: 180,
+      maxMaxBufferLength: 300,
+      maxBufferSize: 60 * 1000 * 1000,
+      // Progressive event playlist: treat as VOD, don't chase live edge
       startPosition: 0,
-      liveSyncDurationCount: 1,
-      liveMaxLatencyDurationCount: 2,
+      liveSyncDurationCount: 0, // 0 = disable live sync (stay at current position)
+      liveMaxLatencyDurationCount: Infinity,
+      liveDurationInfinity: true, // unknown end
+      liveBackBufferLength: Infinity, // keep all past segments
+      // Prefer stable quality, don't switch mid-progressive
+      abrEwmaFastLive: 1.0,
+      abrEwmaSlowLive: 1.0,
       // Authenticated HLS endpoint requires cookies (same-origin)
       xhrSetup: (xhr) => {
         xhr.withCredentials = true
@@ -86,10 +93,12 @@ export function MediaPlayer({ src, title, kind, subtitles, onClose }: Props) {
 
     const onManifest = (_: unknown, data: { levels?: unknown[] }) => {
       setHlsReady(true)
-      // Force start at 0 for event (live) playlists
+      // Force stay at current position for progressive event playlists
       try {
+        // Don't auto-seek to live edge on manifest reload
         hls.startLoad(0)
-        if (videoEl.currentTime > 1) videoEl.currentTime = 0
+        // Only reset if we're somehow at the very end
+        if (videoEl.currentTime > videoEl.duration - 5) videoEl.currentTime = videoEl.duration - 5
       } catch {}
       videoEl.play().catch(() => {})
     }
@@ -117,6 +126,24 @@ export function MediaPlayer({ src, title, kind, subtitles, onClose }: Props) {
       hls.off(Hls.Events.LEVEL_LOADED, onLevel)
     }
   }, [videoEl, src, kind, isHls, hasError])
+
+  // Keep playing after seek — event playlist was pausing on timeline change
+  useEffect(() => {
+    if (!videoEl) return
+    let wasPlaying = false
+    const onSeeking = () => {
+      wasPlaying = !videoEl.paused
+    }
+    const onSeeked = () => {
+      if (wasPlaying) videoEl.play().catch(() => {})
+    }
+    videoEl.addEventListener("seeking", onSeeking)
+    videoEl.addEventListener("seeked", onSeeked)
+    return () => {
+      videoEl.removeEventListener("seeking", onSeeking)
+      videoEl.removeEventListener("seeked", onSeeked)
+    }
+  }, [videoEl])
 
   useEffect(() => {
     if (!videoEl) return

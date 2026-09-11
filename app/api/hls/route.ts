@@ -274,13 +274,13 @@ async function generateAndUploadHlsProgressive(
           "-b:a",
           "128k",
           "-hls_time",
-          "4",
+          "6",
           "-start_number",
           "0",
           "-hls_playlist_type",
           "event",
           "-hls_flags",
-          "independent_segments",
+          "independent_segments+discont_start+omit_endlist",
           "-hls_segment_filename",
           segmentPattern,
           playlistPath,
@@ -752,8 +752,19 @@ export async function GET(request: Request) {
       return new Response(null, { status: 499 } as unknown as ResponseInit)
     }
     console.error(`[hls] failed for ${id}/${key}/${file}`, error)
-    if (message.includes("NoSuchKey") || message.includes("404") || message.includes("NotFound")) {
-      return new Response("Archivo no encontrado", { status: 404 })
+    const code = (error as unknown as { Code?: string; name?: string })?.Code ?? (error as unknown as { name?: string })?.name ?? ""
+    const httpStatus = (error as unknown as { $metadata?: { httpStatusCode?: number } })?.$metadata?.httpStatusCode
+    const isNotFound =
+      code === "NoSuchKey" ||
+      code === "NotFound" ||
+      httpStatus === 404 ||
+      message.includes("NoSuchKey") ||
+      message.includes("404") ||
+      message.includes("NotFound") ||
+      message.includes("UnknownError") && file === "playlist.m3u8"
+    if (isNotFound) {
+      // For progressive, playlist may not yet exist — return 404 so hls.js retries
+      return new Response("Archivo no encontrado", { status: 404, headers: { "Retry-After": "2" } })
     }
     if (
       message.includes("TimeoutError") ||
