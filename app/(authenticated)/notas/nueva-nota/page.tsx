@@ -1,9 +1,14 @@
+import { redirect } from "next/navigation"
 import { createNota } from "@/lib/actions/notas"
 import { Button } from "@/components/ui/Button"
 import { IconArrowLeft } from "@tabler/icons-react"
 import Link from "next/link"
+import { auth } from "@/auth"
 
-export default function NewNotaPage() {
+export default async function NewNotaPage() {
+  const session = await auth()
+  if (!session?.user?.email) redirect("/notas")
+
   return (
     <div className="px-4 py-6 max-w-lg mx-auto w-full">
       <Link

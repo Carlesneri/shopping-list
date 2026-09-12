@@ -1,9 +1,14 @@
+import { redirect } from "next/navigation"
 import { createList } from "@/lib/actions/lists"
 import { Button } from "@/components/ui/Button"
 import { IconArrowLeft } from "@tabler/icons-react"
 import Link from "next/link"
+import { auth } from "@/auth"
 
-export default function NewListPage() {
+export default async function NewListPage() {
+  const session = await auth()
+  if (!session?.user?.email) redirect("/compras")
+
   return (
     <div className="px-4 py-6 max-w-lg mx-auto w-full">
       <Link
