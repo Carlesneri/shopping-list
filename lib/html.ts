@@ -1,5 +1,3 @@
-import DOMPurify from "isomorphic-dompurify"
-
 const HTML_TAG_RE =
   /<\/?(p|ul|ol|li|br|h[1-6]|blockquote|strong|em|s|u|code|pre|a)\b/i
 
@@ -29,38 +27,6 @@ export function stripHtml(html: string): string {
 export function toPlainText(text: string): string {
   if (!text) return ""
   return isHtml(text) ? stripHtml(text) : text
-}
-
-/**
- * Sanitizes editor HTML before persisting it. Only formatting tags produced
- * by the editor survive; scripts, handlers and unknown markup are removed.
- */
-export function sanitizeNotaHtml(html: string): string {
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: [
-      "p",
-      "br",
-      "strong",
-      "em",
-      "s",
-      "u",
-      "code",
-      "pre",
-      "blockquote",
-      "h1",
-      "h2",
-      "h3",
-      "h4",
-      "h5",
-      "h6",
-      "ul",
-      "ol",
-      "li",
-      "hr",
-      "a",
-    ],
-    ALLOWED_ATTR: ["href", "rel", "target"],
-  })
 }
 
 /** Converts legacy plain-text content into editor HTML paragraphs. */

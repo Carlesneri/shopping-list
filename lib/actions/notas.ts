@@ -5,7 +5,7 @@ import { FieldValue } from "firebase-admin/firestore"
 import { revalidatePath } from "next/cache"
 import { getDB } from "@/lib/firebase-admin"
 import { validateNotaInput } from "@/lib/validation"
-import { sanitizeNotaHtml } from "@/lib/html"
+import { sanitizeNotaHtml } from "@/lib/nota-sanitize"
 import {
   requireAuth,
   requireCallerRole,
