@@ -1,8 +1,23 @@
 "use client"
 
-import { createElement, useEffect, useState } from "react"
-import { IconLoader2, IconX } from "@tabler/icons-react"
+import { useEffect, useRef, useState } from "react"
+import { IconAlertCircle, IconLoader2, IconX } from "@tabler/icons-react"
+import { toast } from "sonner"
 import type { MediaKind } from "@/lib/types"
+
+function corsRuleSnippet(): string {
+  // The bucket must allow the exact origin the app is served from, since
+  // presigned URLs already gate access to the files.
+  const origin = window.location.origin
+  return `[
+  {
+    "allowedOrigins": ["${origin}"],
+    "allowedMethods": ["GET"],
+    "allowedHeaders": ["*"],
+    "maxAgeSeconds": 3600
+  }
+]`
+}
 
 export interface SubtitleOption {
   label: string
@@ -13,67 +28,51 @@ interface Props {
   src: string
   title: string
   kind: MediaKind
-  subtitles: SubtitleOption[]
   onClose: () => void
 }
 
-// Loaded from public/movi-player (copied by scripts/copy-movi-player.mjs on
-// predev/prebuild) so Turbopack never bundles the large WASM-based bundle.
-const PLAYER_SCRIPT = "/movi-player/movi-player.js"
-const PLAYER_WASM = "/movi-player/movi.wasm"
-
-let playerScriptLoaded = false
-
-export function MediaPlayer({ src, title, kind, subtitles, onClose }: Props) {
-  const [playerLoaded, setPlayerLoaded] = useState(false)
+export function MediaPlayer({ src, title, kind, onClose }: Props) {
+  const [playerReady, setPlayerReady] = useState(false)
+  const [corsBlocked, setCorsBlocked] = useState(false)
+  const playerRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
-    if (kind === "image") return
-    if (playerScriptLoaded) {
-      setPlayerLoaded(true)
-      return
-    }
-    let active = true
-    const onLoad = () => {
-      const existing = document.querySelector<HTMLScriptElement>(
-        `script[src="${PLAYER_SCRIPT}"]`,
+    // movi-player accesses `window` at module evaluation, so it can only be
+    // imported in the browser (client components are still server-rendered).
+    let cancelled = false
+    import("movi-player").then(() => {
+      // The element only upgrades (and starts loading media) once the module
+      // resolves, so these events cannot have fired before we attach.
+      const player = playerRef.current
+      if (!player) return
+      player.addEventListener(
+        "canplay",
+        () => {
+          if (!cancelled) setPlayerReady(true)
+        },
+        { once: true },
       )
-      if (existing) existing.dataset.loaded = "1"
-      playerScriptLoaded = true
-      if (active) setPlayerLoaded(true)
-    }
-    const onError = () => {
-      // Remove a failed attempt so the next play tries again
-      const el = document.querySelector<HTMLScriptElement>(
-        `script[src="${PLAYER_SCRIPT}"]`,
-      )
-      el?.remove()
-    }
-    const existing = document.querySelector<HTMLScriptElement>(
-      `script[src="${PLAYER_SCRIPT}"]`,
-    )
-    if (existing) {
-      if (existing.dataset.loaded === "1") {
-        playerScriptLoaded = true
-        setPlayerLoaded(true)
-      } else {
-        existing.addEventListener("load", onLoad)
-        existing.addEventListener("error", onError)
-      }
-      return
-    }
-    const script = document.createElement("script")
-    script.type = "module"
-    script.src = PLAYER_SCRIPT
-    script.addEventListener("load", onLoad)
-    script.addEventListener("error", onError)
-    document.head.appendChild(script)
+      player.addEventListener("errordisplay", (event) => {
+        if (cancelled) return
+        // Reveal the player so its own error screen is visible for non-CORS
+        // failures instead of an endless spinner.
+        setPlayerReady(true)
+        const detail = (
+          event as CustomEvent<{ title?: string; message?: string }>
+        ).detail
+        if (
+          /cors|failed to fetch/i.test(
+            `${detail?.title ?? ""} ${detail?.message ?? ""}`,
+          )
+        ) {
+          setCorsBlocked(true)
+        }
+      })
+    })
     return () => {
-      active = false
-      script.removeEventListener("load", onLoad)
-      script.removeEventListener("error", onError)
+      cancelled = true
     }
-  }, [kind])
+  }, [])
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -82,33 +81,6 @@ export function MediaPlayer({ src, title, kind, subtitles, onClose }: Props) {
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
   }, [onClose])
-
-  const tracks = subtitles.map((subtitle, i) =>
-    createElement("track", {
-      key: subtitle.src,
-      kind: "subtitles",
-      src: subtitle.src,
-      label: subtitle.label,
-      default: i === 0,
-    }),
-  )
-
-  const player = createElement(
-    "movi-player",
-    {
-      src,
-      controls: true,
-      playsinline: true,
-      theme: "dark",
-      fallback: "native",
-      wasmurl: PLAYER_WASM,
-      style:
-        kind === "video"
-          ? { width: "100%", height: "100%" }
-          : { width: "100%" },
-    },
-    ...tracks,
-  )
 
   return (
     <div
@@ -146,17 +118,55 @@ export function MediaPlayer({ src, title, kind, subtitles, onClose }: Props) {
               className="max-h-[75vh] w-auto max-w-full object-contain"
             />
           </div>
-        ) : !playerLoaded ? (
-          <div className="flex aspect-video items-center justify-center gap-3 bg-black">
-            <IconLoader2 size={28} className="animate-spin text-white/80" />
-            <p className="text-xs text-white/70">Cargando reproductor…</p>
-          </div>
         ) : kind === "audio" ? (
           <div className="flex items-center justify-center bg-black px-4 py-8">
-            {player}
+            <audio src={src} controls className="w-full" />
           </div>
         ) : (
-          <div className="relative aspect-video w-full bg-black">{player}</div>
+          <div className="relative aspect-video w-full bg-black">
+            <movi-player
+              ref={playerRef}
+              src={src}
+              controls
+              class={`h-full w-full ${playerReady ? "" : "opacity-0"}`}
+            ></movi-player>
+            {!playerReady && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black">
+                <IconLoader2
+                  size={36}
+                  className="animate-spin text-white/60"
+                  aria-label="Cargando"
+                />
+              </div>
+            )}
+            {corsBlocked && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 overflow-auto bg-black p-4 text-center">
+                <IconAlertCircle size={28} className="text-amber-400" />
+                <p className="text-sm font-bold text-white">
+                  El navegador bloqueó el vídeo por CORS
+                </p>
+                <p className="max-w-md text-xs leading-relaxed text-white/70">
+                  Añade esta regla CORS a tu bucket de Cloudflare R2 (Settings
+                  → CORS policy) para permitir la lectura de archivos:
+                </p>
+                <pre className="max-w-full overflow-x-auto rounded-lg border border-white/20 bg-white/10 p-3 text-left font-mono text-[11px] leading-relaxed text-white">
+                  {corsRuleSnippet()}
+                </pre>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard
+                      .writeText(corsRuleSnippet())
+                      .then(() => toast.success("Regla CORS copiada"))
+                      .catch(() => toast.error("No se pudo copiar"))
+                  }}
+                  className="cursor-pointer rounded-full border border-white/30 px-4 py-1.5 text-xs font-bold text-white transition-colors hover:bg-white/10"
+                >
+                  Copiar regla
+                </button>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>

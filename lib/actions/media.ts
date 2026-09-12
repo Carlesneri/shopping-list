@@ -162,6 +162,10 @@ export async function getMediaStorageClient(mediaId: string) {
     endpoint,
     forcePathStyle: true,
     maxAttempts: 1,
+    // R2 rejects presigned URLs that include x-amz-checksum-mode (added by
+    // default in recent SDK versions), so only send checksums when required.
+    requestChecksumCalculation: "WHEN_REQUIRED",
+    responseChecksumValidation: "WHEN_REQUIRED",
     credentials: {
       accessKeyId,
       secretAccessKey,

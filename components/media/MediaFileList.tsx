@@ -27,10 +27,6 @@ function parseBreadcrumbs(path: string) {
     }))
 }
 
-function buildMediaFileUrl(mediaId: string, key: string) {
-  return `/api/media-file?id=${encodeURIComponent(mediaId)}&key=${encodeURIComponent(key)}`
-}
-
 export function MediaFileList({
   mediaId,
   entries: initialEntries,
@@ -56,7 +52,6 @@ export function MediaFileList({
     src: string
     title: string
     kind: MediaKind
-    subtitles: SubtitleOption[]
   } | null>(null)
 
   const breadcrumbs = parseBreadcrumbs(currentPath)
@@ -125,43 +120,6 @@ export function MediaFileList({
     const interval = setInterval(checkForNewItems, 60_000)
     return () => clearInterval(interval)
   }, [checkForNewItems])
-
-  async function resolveSubtitles(
-    entry: StorageEntry,
-  ): Promise<SubtitleOption[]> {
-    try {
-      const lastSlash = entry.key.lastIndexOf("/")
-      const dir = lastSlash >= 0 ? entry.key.slice(0, lastSlash + 1) : ""
-      const fileName = entry.key.slice(dir.length)
-      const base = fileName.replace(/\.[^.]+$/, "")
-      const defaultName = `${base}.vtt`
-
-      const siblings = await listMediaStorageEntries(mediaId, dir)
-      const matches = siblings
-        .filter(
-          (s) =>
-            s.type === "file" &&
-            (s.name === defaultName ||
-              (s.name.startsWith(`${base}.`) && s.name.endsWith(".vtt"))),
-        )
-        .sort(
-          (a, b) =>
-            Number(b.name === defaultName) - Number(a.name === defaultName) ||
-            a.name.localeCompare(b.name),
-        )
-
-      return await Promise.all(
-        matches.map(async (s) => ({
-          label: s.name.slice(base.length + 1, -4) || "Subtítulos",
-          // Same-origin proxy: browser fetch of R2 presigned URLs hits CORS
-          src: buildMediaFileUrl(mediaId, s.key),
-        })),
-      )
-    } catch (error) {
-      console.error("[media:play] failed to resolve subtitles", error)
-      return []
-    }
-  }
 
   function openPlaylist(entry: StorageEntry) {
     window.location.href = `/media/${mediaId}/playlist?key=${encodeURIComponent(entry.key)}`
@@ -252,10 +210,9 @@ export function MediaFileList({
     if (!kind) return
 
     return runEntryAction(entry, "play", async () => {
-      // Same-origin proxy for in-browser playback (no R2 CORS)
-      const src = buildMediaFileUrl(mediaId, entry.key)
-      const subtitles = kind === "video" ? await resolveSubtitles(entry) : []
-      setPlaying({ src, title: entry.name, kind, subtitles })
+      // Direct presigned R2 URL; requires GET CORS rule on the bucket.
+      const src = await getMediaEntryUrl(mediaId, entry.key)
+      setPlaying({ src, title: entry.name, kind })
     })
   }
 
@@ -342,7 +299,6 @@ export function MediaFileList({
             src={playing.src}
             title={playing.title}
             kind={playing.kind}
-            subtitles={playing.subtitles}
             onClose={handleClosePlayer}
           />
         ) : null}
