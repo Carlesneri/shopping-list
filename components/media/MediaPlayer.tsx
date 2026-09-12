@@ -35,6 +35,7 @@ export function MediaPlayer({ src, title, kind, onClose }: Props) {
   const [playerReady, setPlayerReady] = useState(false)
   const [corsBlocked, setCorsBlocked] = useState(false)
   const playerRef = useRef<HTMLElement>(null)
+  const videoContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -88,6 +89,34 @@ export function MediaPlayer({ src, title, kind, onClose }: Props) {
     return () => window.removeEventListener("keydown", onKey)
   }, [onClose])
 
+  useEffect(() => {
+    if (kind !== "video") return
+
+    // On touch devices, rotate to landscape → fullscreen, back to portrait → exit.
+    const landscape = window.matchMedia(
+      "(orientation: landscape) and (pointer: coarse)",
+    )
+    const container = () => videoContainerRef.current
+
+    function onChange(event: MediaQueryListEvent) {
+      if (event.matches) {
+        container()
+          ?.requestFullscreen()
+          .catch(() => {})
+      } else if (document.fullscreenElement === container()) {
+        document.exitFullscreen().catch(() => {})
+      }
+    }
+
+    landscape.addEventListener("change", onChange)
+    return () => {
+      landscape.removeEventListener("change", onChange)
+      if (document.fullscreenElement === container()) {
+        document.exitFullscreen().catch(() => {})
+      }
+    }
+  }, [kind])
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
@@ -129,7 +158,7 @@ export function MediaPlayer({ src, title, kind, onClose }: Props) {
             <audio src={src} controls className="w-full" />
           </div>
         ) : (
-          <div className="relative aspect-video w-full bg-black">
+          <div ref={videoContainerRef} className="relative aspect-video w-full bg-black">
             <movi-player
               ref={playerRef}
               src={src}
