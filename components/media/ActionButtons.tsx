@@ -49,7 +49,7 @@ export function ActionButtons({
 }: Props) {
   const loadingKind = loading?.key === entryKey ? loading.action : null
 
-  const isBusy = loading !== null
+  const isBusy = loadingKind !== null
   const baseBtn =
     "shrink-0 cursor-pointer rounded-md p-1.5 transition-colors disabled:cursor-wait"
   const isUnsupportedVideo =

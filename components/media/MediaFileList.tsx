@@ -42,10 +42,7 @@ export function MediaFileList({
 }) {
   const router = useRouter()
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
-  const [loadingAction, setLoadingAction] = useState<{
-    key: string
-    action: ActionKind
-  } | null>(null)
+  const [loadingActions, setLoadingActions] = useState<Record<string, ActionKind>>({})
   const hasNotified = useRef(false)
   const [currentPath, setCurrentPath] = useState("")
   const [entries, setEntries] = useState(initialEntries)
@@ -204,7 +201,7 @@ export function MediaFileList({
     action: ActionKind,
     run: () => Promise<void>,
   ) {
-    setLoadingAction({ key: entry.key, action })
+    setLoadingActions((prev) => ({ ...prev, [entry.key]: action }))
     try {
       await run()
     } catch (error) {
@@ -215,7 +212,11 @@ export function MediaFileList({
           : "No se pudo completar la acción",
       )
     } finally {
-      setLoadingAction(null)
+      setLoadingActions((prev) => {
+        const next = { ...prev }
+        delete next[entry.key]
+        return next
+      })
     }
   }
 
@@ -402,7 +403,11 @@ export function MediaFileList({
             onToggleSelect={() =>
               setSelectedKey(entry.key === selectedKey ? null : entry.key)
             }
-            loadingAction={loadingAction}
+            loadingAction={
+              loadingActions[entry.key]
+                ? { key: entry.key, action: loadingActions[entry.key] }
+                : null
+            }
             isAdmin={isAdmin}
             onPlay={() => handleOpen(entry)}
             onVlc={() => handleOpenInVlc(entry)}

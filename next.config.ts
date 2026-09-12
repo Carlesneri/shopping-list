@@ -2,7 +2,7 @@ import type { NextConfig } from "next"
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
-  serverExternalPackages: ["ffmpeg-static"],
+  serverExternalPackages: ["ffmpeg-static", "get-video-duration", "@ffprobe-installer/ffprobe", "@ffprobe-installer/darwin-x64", "@ffprobe-installer/linux-x64", "@ffprobe-installer/win32-x64"],
   images: {
     remotePatterns: [
       {

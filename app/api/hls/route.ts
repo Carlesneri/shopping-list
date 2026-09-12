@@ -10,10 +10,11 @@ import { getMediaStorageClient } from "@/lib/actions/media"
 import { getHlsPrefix } from "@/lib/hls-utils"
 import ffmpegStatic from "ffmpeg-static"
 import { spawn } from "node:child_process"
-import { mkdtemp, readdir, readFile, rm, stat } from "node:fs/promises"
+import { mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import type { Readable } from "node:stream"
+import { getVideoDurationInSeconds } from "get-video-duration"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -23,7 +24,7 @@ export const maxDuration = 300
 type ProgressiveState = {
   tmpDir: string
   ready: Promise<void>
-  done: Promise<void>
+  done: Promise<number> // resolves to total duration in seconds
   uploaded: Set<string>
 }
 const progressiveStates = new Map<string, ProgressiveState>()
@@ -97,7 +98,7 @@ async function generateAndUploadHlsProgressive(
   originalKey: string,
   lockKey: string,
   signal?: AbortSignal,
-): Promise<{ ready: Promise<void>; done: Promise<void> }> {
+): Promise<{ ready: Promise<void>; done: Promise<number> }> {
   if (!ffmpegStatic) throw new Error("ffmpeg not available on server")
   const tmpDir = await mkdtemp(join(tmpdir(), "hls-"))
   activeTmpDirs.set(lockKey, tmpDir)
@@ -111,10 +112,43 @@ async function generateAndUploadHlsProgressive(
   })
   let readySettled = false
   const uploaded = new Set<string>()
-  let lastPlaylistSize = -1
+let lastPlaylistSize = -1
+  let totalDuration: number | null = null
+
+  // Probe total duration using get-video-duration (download full file to temp, then use library)
+  const videoTempPath = join(tmpDir, "source_video")
+  try {
+    const s3Resp = await client.send(
+      new GetObjectCommand({ Bucket: bucket, Key: originalKey }),
+    )
+    if (s3Resp.Body) {
+      const readable = s3Resp.Body as unknown as Readable &
+        NodeJS.ReadableStream & { pipe: (dest: NodeJS.WritableStream) => NodeJS.WritableStream }
+      await new Promise<void>((res, rej) => {
+        const fs = require("fs")
+        const fileStream = fs.createWriteStream(videoTempPath)
+        readable.pipe(fileStream)
+        fileStream.on("finish", res)
+        fileStream.on("error", rej)
+        readable.on("error", rej)
+      })
+      // Get duration using get-video-duration (works with local file)
+      try {
+        const duration = await getVideoDurationInSeconds(videoTempPath)
+        if (!isNaN(duration) && duration > 0) {
+          totalDuration = Math.ceil(duration)
+          console.log(`[hls] probed duration for ${originalKey}: ${totalDuration}s`)
+        }
+      } catch (e) {
+        console.warn(`[hls] get-video-duration failed for ${originalKey}:`, e)
+      }
+    }
+  } catch (e) {
+    console.warn(`[hls] download for duration probe failed for ${originalKey}:`, e)
+  }
 
   // Background task that spawns ffmpeg and continuously uploads
-  const done = (async () => {
+  const done = (async (): Promise<number> => {
     let poll: NodeJS.Timeout | null = null
     let proc: ReturnType<typeof spawn> | null = null
     try {
@@ -261,6 +295,10 @@ async function generateAndUploadHlsProgressive(
         const args = [
           "-fflags",
           "+genpts",
+          "-analyzeduration",
+          "100M",
+          "-probesize",
+          "100M",
           "-i",
           "pipe:0",
           "-c:v",
@@ -443,6 +481,7 @@ async function generateAndUploadHlsProgressive(
         rm(tmpDir, { recursive: true, force: true }).catch(() => {})
       }, 30000)
     }
+    return totalDuration ?? 0
   })()
 
   // Safety: if ready not resolved in 90s, fail fast (ffmpeg likely errored)
@@ -455,7 +494,7 @@ async function generateAndUploadHlsProgressive(
     }
   }, 90000)
 
-  return { ready, done }
+  return { ready, done: done.then(() => totalDuration ?? 0) }
 }
 
 async function ensureHlsReady(
@@ -687,6 +726,10 @@ export async function GET(request: Request) {
       return new Response("Objeto HLS vacío", { status: 404 })
     }
 
+    // Get total duration from progressive state if available
+    const state = progressiveStates.get(lockKey)
+    const totalDuration = state ? await state.done.catch(() => 0) : 0
+
     // Playlist: rewrite segment URLs to go through this authenticated proxy
     if (file === "playlist.m3u8") {
       let text: string
@@ -714,8 +757,11 @@ export async function GET(request: Request) {
       headers.set("Access-Control-Allow-Origin", "*")
       headers.set(
         "Access-Control-Expose-Headers",
-        "Content-Length, Content-Type",
+        "Content-Length, Content-Type, X-Total-Duration",
       )
+      if (totalDuration > 0) {
+        headers.set("X-Total-Duration", String(totalDuration))
+      }
       if (s3Response.ETag) headers.set("ETag", s3Response.ETag)
       return new Response(rewritten, { status: 200, headers })
     }
