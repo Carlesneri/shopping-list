@@ -7,10 +7,11 @@ import { Footer } from "@/components/layout/Footer"
 import { FirebaseAuthProvider } from "@/components/providers/FirebaseAuthProvider"
 import "./globals.css"
 
+// Variable fonts (no `weight` array): one file covers all weights, so
+// next/font doesn't preload per-weight files that pages never render.
 const nunito = Nunito({
   variable: "--font-nunito",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800", "900"],
 })
 
 const jetbrainsMono = JetBrains_Mono({

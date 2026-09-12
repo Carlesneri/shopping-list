@@ -26,7 +26,7 @@ vi.mock("@/lib/firebase-admin", () => ({
               accessKeyId: "access-key",
               bucket: "mi-bucket",
               secretEnc: "iv:tag:secret",
-              S3APIendpoint: "https://example.r2.cloudflarestorage.com",
+              S3APIendpoint: "https://account-123.r2.cloudflarestorage.com",
             },
           }),
           ref: { update: vi.fn() },

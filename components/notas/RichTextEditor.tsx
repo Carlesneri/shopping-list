@@ -182,6 +182,9 @@ export function RichTextEditor({
   const linkInputRef = useRef<HTMLInputElement>(null)
 
   const editor = useEditor({
+    // SSR'd client component: render the editor on mount to avoid hydration
+    // mismatches (explicit to silence the Tiptap default warning).
+    immediatelyRender: false,
     extensions: [
       StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
       Placeholder.configure({

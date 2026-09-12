@@ -44,25 +44,62 @@ function detectMediaKind(key: string): MediaKind | undefined {
   return undefined
 }
 
-function normalizeR2Endpoint(value?: string) {
+const R2_SUFFIX = ".r2.cloudflarestorage.com"
+const LEGACY_R2_SUFFIX = ".cloudflarestorage.com"
+
+/**
+ * Normalizes and validates the R2 endpoint. The host must be a Cloudflare R2
+ * endpoint belonging to the user's own account (optionally with a
+ * jurisdiction segment, e.g. `<account>.eu.r2.cloudflarestorage.com`) —
+ * anything else is rejected so the server never contacts a foreign host
+ * with the stored credentials.
+ */
+function normalizeR2Endpoint(value: string | undefined, accountId: string) {
   if (!value) return ""
 
   const trimmed = value.trim().replace(/\/+$/, "")
   if (!trimmed) return ""
 
-  if (/^https?:\/\//i.test(trimmed)) {
-    return trimmed
+  let host = trimmed
+  if (/^https?:\/\//i.test(host)) {
+    try {
+      host = new URL(host).host
+    } catch {
+      return ""
+    }
+  } else if (!host.includes(".")) {
+    // Bare account id — expand to the standard R2 endpoint.
+    host = `${host}${R2_SUFFIX}`
   }
 
-  if (trimmed.includes(".r2.cloudflarestorage.com")) {
-    return `https://${trimmed.replace(/^https?:\/\//i, "")}`
+  const lowerHost = host.toLowerCase()
+  const suffix = lowerHost.endsWith(R2_SUFFIX)
+    ? R2_SUFFIX
+    : lowerHost.endsWith(LEGACY_R2_SUFFIX)
+      ? LEGACY_R2_SUFFIX
+      : null
+  if (!suffix) {
+    throw new Error(
+      "Endpoint no válido: usa el endpoint de Cloudflare R2 (https://<account-id>.r2.cloudflarestorage.com)",
+    )
   }
 
-  if (trimmed.includes(".cloudflarestorage.com")) {
-    return `https://${trimmed.replace(/^https?:\/\//i, "")}`
+  const account = accountId.trim().toLowerCase()
+  const prefix = lowerHost.slice(0, -suffix.length)
+  if (!prefix.startsWith(account)) {
+    throw new Error(
+      "El endpoint debe corresponder a tu account ID de Cloudflare",
+    )
   }
 
-  return `https://${trimmed}.r2.cloudflarestorage.com`
+  const rest = prefix.slice(account.length)
+  if (rest !== "" && !/^\.[a-z0-9-]+$/.test(rest)) {
+    throw new Error(
+      "Endpoint no válido: usa el endpoint de Cloudflare R2 (https://<account-id>.r2.cloudflarestorage.com)",
+    )
+  }
+
+  return `https://${lowerHost}`
 }
 
 export async function createMediaStorage(formData: FormData) {
@@ -94,6 +131,7 @@ export async function createMediaStorage(formData: FormData) {
     typeof formData.get("S3APIendpoint") === "string"
       ? (formData.get("S3APIendpoint") as string)
       : "",
+    accountId,
   )
 
   const stayValue = formData.get("stay")
@@ -151,7 +189,7 @@ export async function getMediaStorageClient(mediaId: string) {
   const secretAccessKey = config.secretEnc
     ? decryptSecret(config.secretEnc)
     : ""
-  const endpoint = normalizeR2Endpoint(config.S3APIendpoint)
+  const endpoint = normalizeR2Endpoint(config.S3APIendpoint, accountId ?? "")
 
   if (!accountId || !accessKeyId || !bucket || !secretAccessKey || !endpoint) {
     throw new Error("Falta el endpoint de Cloudflare R2")
@@ -162,6 +200,8 @@ export async function getMediaStorageClient(mediaId: string) {
     endpoint,
     forcePathStyle: true,
     maxAttempts: 1,
+    // Never let a request hang: all R2 calls are user-triggered.
+    requestHandler: { requestTimeout: 15_000 },
     // R2 rejects presigned URLs that include x-amz-checksum-mode (added by
     // default in recent SDK versions), so only send checksums when required.
     requestChecksumCalculation: "WHEN_REQUIRED",
@@ -304,8 +344,8 @@ export async function updateMediaConfig(
   const currentSecretEnc = (data.config as { secretEnc?: string }).secretEnc
   const currentConfig = (data.config as { S3APIendpoint?: string }) ?? {}
   const resolvedS3ApiEndpoint =
-    normalizeR2Endpoint(s3ApiEndpoint) ||
-    normalizeR2Endpoint(currentConfig.S3APIendpoint)
+    normalizeR2Endpoint(s3ApiEndpoint, config.accountId) ||
+    normalizeR2Endpoint(currentConfig.S3APIendpoint, config.accountId)
   const secretEnc = config.secretAccessKey
     ? encryptSecret(config.secretAccessKey)
     : currentSecretEnc
