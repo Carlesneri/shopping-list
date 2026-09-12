@@ -2,7 +2,6 @@ import type { NextConfig } from "next"
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
-  serverExternalPackages: ["ffmpeg-static", "get-video-duration", "@ffprobe-installer/ffprobe", "@ffprobe-installer/darwin-x64", "@ffprobe-installer/linux-x64", "@ffprobe-installer/win32-x64"],
   images: {
     remotePatterns: [
       {
@@ -10,9 +9,6 @@ const nextConfig: NextConfig = {
         hostname: "lh3.googleusercontent.com",
       },
     ],
-  },
-  outputFileTracingIncludes: {
-    "/api/hls": ["./node_modules/ffmpeg-static/ffmpeg"],
   },
   async redirects() {
     return [

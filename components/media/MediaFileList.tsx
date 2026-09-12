@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { IconChevronRight, IconSearch } from "@tabler/icons-react"
 import type { MediaKind, StorageEntry } from "@/lib/types"
-import { isVideoNativelyUnsupported } from "@/lib/media-utils"
 import {
   getMediaEntryUrl,
   listMediaStorageEntries,
@@ -15,7 +14,6 @@ import {
 import { MediaPlayer, type SubtitleOption } from "./MediaPlayer"
 import { MediaFileListItem } from "./MediaFileListItem"
 import type { ActionKind } from "./ActionButtons"
-import { HlsConsentDialog } from "./HlsConsentDialog"
 
 function parseBreadcrumbs(path: string) {
   if (!path) return []
@@ -27,6 +25,10 @@ function parseBreadcrumbs(path: string) {
       label: segment,
       path: `${arr.slice(0, index + 1).join("/")}/`,
     }))
+}
+
+function buildMediaFileUrl(mediaId: string, key: string) {
+  return `/api/media-file?id=${encodeURIComponent(mediaId)}&key=${encodeURIComponent(key)}`
 }
 
 export function MediaFileList({
@@ -42,7 +44,9 @@ export function MediaFileList({
 }) {
   const router = useRouter()
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
-  const [loadingActions, setLoadingActions] = useState<Record<string, ActionKind>>({})
+  const [loadingActions, setLoadingActions] = useState<
+    Record<string, ActionKind>
+  >({})
   const hasNotified = useRef(false)
   const [currentPath, setCurrentPath] = useState("")
   const [entries, setEntries] = useState(initialEntries)
@@ -53,43 +57,9 @@ export function MediaFileList({
     title: string
     kind: MediaKind
     subtitles: SubtitleOption[]
-    key: string
   } | null>(null)
-  const [pendingConsentEntry, setPendingConsentEntry] =
-    useState<StorageEntry | null>(null)
 
   const breadcrumbs = parseBreadcrumbs(currentPath)
-
-  // Stop progressive HLS upload when page is reloaded/closed — only upload while player is open
-  useEffect(() => {
-    if (!playing || !playing.src.includes("/api/hls")) return
-    const keyToCancel = playing.key
-    const cancelHls = () => {
-      const url = `/api/hls?id=${encodeURIComponent(mediaId)}&key=${encodeURIComponent(keyToCancel)}`
-      try {
-        // keepalive ensures it fires even during unload
-        fetch(url, { method: "DELETE", keepalive: true }).catch(() => {})
-      } catch {}
-      // also try sendBeacon as fallback (beacon is POST)
-      try {
-        if (navigator.sendBeacon) {
-          const blob = new Blob([], { type: "text/plain" })
-          navigator.sendBeacon(url, blob)
-        }
-      } catch {}
-    }
-    const handleBeforeUnload = () => cancelHls()
-    const handlePageHide = () => cancelHls()
-    window.addEventListener("beforeunload", handleBeforeUnload)
-    window.addEventListener("pagehide", handlePageHide)
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload)
-      window.removeEventListener("pagehide", handlePageHide)
-      // SPA navigation / component unmount while still playing — also cancel
-      // (this cleanup runs with the *previous* playing value)
-      cancelHls()
-    }
-  }, [playing, mediaId])
 
   useEffect(() => {
     if (initialError) {
@@ -183,7 +153,8 @@ export function MediaFileList({
       return await Promise.all(
         matches.map(async (s) => ({
           label: s.name.slice(base.length + 1, -4) || "Subtítulos",
-          src: await getMediaEntryUrl(mediaId, s.key),
+          // Same-origin proxy: browser fetch of R2 presigned URLs hits CORS
+          src: buildMediaFileUrl(mediaId, s.key),
         })),
       )
     } catch (error) {
@@ -276,76 +247,21 @@ export function MediaFileList({
     })
   }
 
-  async function executeHlsPlay(entry: StorageEntry) {
-    const kind = entry.mediaKind
-    if (!kind) return
-    return runEntryAction(entry, "play", async () => {
-      const hlsUrl = `/api/hls?id=${encodeURIComponent(mediaId)}&key=${encodeURIComponent(entry.key)}`
-      // Preflight triggers server-side progressive HLS generation; MediaPlayer shows loading overlay
-      const subtitlesPromise = kind === "video" ? resolveSubtitles(entry) : Promise.resolve([] as SubtitleOption[])
-      const preflight = await fetch(hlsUrl, { method: "GET" })
-      if (!preflight.ok) {
-        const text = await preflight.text().catch(() => "")
-        throw new Error(text || `Error HLS ${preflight.status}`)
-      }
-      const subtitles = await subtitlesPromise
-      setPlaying({ src: hlsUrl, title: entry.name, kind, subtitles, key: entry.key })
-    })
-  }
-
-
-
   function handleOpen(entry: StorageEntry) {
     const kind = entry.mediaKind
     if (!kind) return
 
-    const needsTranscode =
-      kind === "video" && isVideoNativelyUnsupported(entry.key)
-
-    if (!needsTranscode) {
-      return runEntryAction(entry, "play", async () => {
-        const [src, subtitles] = await Promise.all([
-          getMediaEntryUrl(mediaId, entry.key),
-          kind === "video" ? resolveSubtitles(entry) : Promise.resolve([]),
-        ])
-        setPlaying({ src, title: entry.name, kind, subtitles, key: entry.key })
-      })
-    }
-
-    // Always ask for cache consent (no remember) — required by policy
-    setPendingConsentEntry(entry)
-  }
-
-  function handleConsentApprove() {
-    const entry = pendingConsentEntry
-    setPendingConsentEntry(null)
-    if (entry) void executeHlsPlay(entry)
-  }
-
-  function handleConsentDeny() {
-    setPendingConsentEntry(null)
-    toast.info("Reproducción cancelada", {
-      description: "No se usará almacenamiento en caché. HLS es ahora la única opción para este formato.",
+    return runEntryAction(entry, "play", async () => {
+      // Same-origin proxy for in-browser playback (no R2 CORS)
+      const src = buildMediaFileUrl(mediaId, entry.key)
+      const subtitles = kind === "video" ? await resolveSubtitles(entry) : []
+      setPlaying({ src, title: entry.name, kind, subtitles })
     })
   }
 
-  const handleClosePlayer = useCallback(async () => {
-    if (!playing) return
-    const keyToCancel = playing.key
-    const isHls = playing.src.includes("/api/hls")
+  const handleClosePlayer = useCallback(() => {
     setPlaying(null)
-    // If HLS progressive transcode is still running, abort it server-side
-    if (isHls && keyToCancel) {
-      try {
-        await fetch(
-          `/api/hls?id=${encodeURIComponent(mediaId)}&key=${encodeURIComponent(keyToCancel)}`,
-          { method: "DELETE" },
-        )
-      } catch {
-        // ignore cancel errors
-      }
-    }
-  }, [playing, mediaId])
+  }, [])
 
   return (
     <div className="flex flex-col gap-2">
@@ -440,14 +356,6 @@ export function MediaFileList({
         <p className="text-sm text-text/50 py-2 text-center">
           No hay ningún elemento disponible
         </p>
-      ) : null}
-      {pendingConsentEntry ? (
-        <HlsConsentDialog
-          fileName={pendingConsentEntry.name}
-          onApprove={handleConsentApprove}
-          onDeny={handleConsentDeny}
-          onClose={() => setPendingConsentEntry(null)}
-        />
       ) : null}
     </div>
   )
