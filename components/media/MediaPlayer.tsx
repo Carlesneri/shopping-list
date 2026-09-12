@@ -37,44 +37,38 @@ export function MediaPlayer({ src, title, kind, onClose }: Props) {
   const playerRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
+    // movi-player accesses `window` at module evaluation, so it can only be
+    // imported in the browser (client components are still server-rendered).
     let cancelled = false
-    const player = playerRef.current
-    if (!player) return
-    player.addEventListener(
-      "canplay",
-      () => {
-        if (!cancelled) setPlayerReady(true)
-      },
-      { once: true },
-    )
-    player.addEventListener("errordisplay", (event) => {
-      if (cancelled) return
-      // Reveal the player so its own error screen is visible for non-CORS
-      // failures instead of an endless spinner.
-      setPlayerReady(true)
-      const detail = (
-        event as CustomEvent<{ title?: string; message?: string }>
-      ).detail
-      if (
-        /cors|failed to fetch/i.test(
-          `${detail?.title ?? ""} ${detail?.message ?? ""}`,
-        )
-      ) {
-        setCorsBlocked(true)
-      }
+    import("movi-player").then(() => {
+      // The element only upgrades (and starts loading media) once the module
+      // resolves, so these events cannot have fired before we attach.
+      const player = playerRef.current
+      if (!player) return
+      player.addEventListener(
+        "canplay",
+        () => {
+          if (!cancelled) setPlayerReady(true)
+        },
+        { once: true },
+      )
+      player.addEventListener("errordisplay", (event) => {
+        if (cancelled) return
+        // Reveal the player so its own error screen is visible for non-CORS
+        // failures instead of an endless spinner.
+        setPlayerReady(true)
+        const detail = (
+          event as CustomEvent<{ title?: string; message?: string }>
+        ).detail
+        if (
+          /cors|failed to fetch/i.test(
+            `${detail?.title ?? ""} ${detail?.message ?? ""}`,
+          )
+        ) {
+          setCorsBlocked(true)
+        }
+      })
     })
-
-    // Load the player from the static copy in /public (kept in sync by
-    // scripts/copy-movi-player.mjs). Importing the package directly makes the
-    // bundler inline movi.wasm into a JS chunk, which corrupts the production
-    // build with a syntax error.
-    if (!customElements.get("movi-player")) {
-      const script = document.createElement("script")
-      script.type = "module"
-      script.src = "/movi-player/movi-player.js"
-      document.head.append(script)
-    }
-
     return () => {
       cancelled = true
     }
