@@ -2,10 +2,11 @@ import Link from "next/link"
 import { IconUsers } from "@tabler/icons-react"
 import { ShareButton } from "@/components/ui/ShareButton"
 import type { Nota } from "@/lib/types"
+import { toPlainText } from "@/lib/html"
 
 export function NotaCard({ nota }: { nota: Nota }) {
   const title = nota.title?.trim() || "Nota sin título"
-  const content = nota.text?.trim() || "Sin contenido"
+  const content = toPlainText(nota.text ?? "") || "Sin contenido"
 
   return (
     <Link href={`/notas/${nota.id}`}>

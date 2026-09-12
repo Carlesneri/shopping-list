@@ -4,6 +4,8 @@ import { useMemo, useState, type FormEvent } from "react"
 import { Button } from "@/components/ui/Button"
 import { createNota } from "@/lib/actions/notas"
 import { IconX } from "@tabler/icons-react"
+import { RichTextEditor } from "@/components/notas/RichTextEditor"
+import { stripHtml } from "@/lib/html"
 
 export function CreateNotaForm({ onClose }: { onClose?: () => void }) {
   const [title, setTitle] = useState("")
@@ -11,7 +13,7 @@ export function CreateNotaForm({ onClose }: { onClose?: () => void }) {
   const [submitting, setSubmitting] = useState(false)
 
   const isSubmitDisabled = useMemo(
-    () => !title.trim() && !text.trim(),
+    () => !title.trim() && !stripHtml(text),
     [title, text],
   )
 
@@ -79,15 +81,13 @@ export function CreateNotaForm({ onClose }: { onClose?: () => void }) {
           <label className="font-semibold text-sm" htmlFor="text">
             Texto
           </label>
-          <textarea
-            id="text"
-            name="text"
-            rows={6}
-            value={text}
-            onChange={(event) => setText(event.target.value)}
+          <RichTextEditor
+            content={text}
+            onChange={setText}
             placeholder="Describe lo que quieras recordar..."
-            className="min-h-[140px] resize-y border-2 border-black rounded-md px-3 py-2 font-sans focus:outline-none focus:border-primary"
+            contentClassName="min-h-[140px]"
           />
+          <input type="hidden" id="text" name="text" value={text} />
         </div>
 
         <Button

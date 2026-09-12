@@ -69,3 +69,107 @@ body {
     ufo-float 2.8s ease-in-out infinite,
     ufo-colors 3s ease infinite;
 }
+
+/* Tiptap editor content */
+.richtext-content {
+  word-break: break-word;
+}
+
+.richtext-content p {
+  margin: 0.25em 0;
+}
+
+.richtext-content p:first-child {
+  margin-top: 0;
+}
+
+.richtext-content h1,
+.richtext-content h2,
+.richtext-content h3 {
+  font-weight: 700;
+  margin: 0.75em 0 0.35em;
+}
+
+.richtext-content h1 {
+  font-size: 1.5em;
+}
+
+.richtext-content h2 {
+  font-size: 1.25em;
+}
+
+.richtext-content h3 {
+  font-size: 1.1em;
+}
+
+.richtext-content ul,
+.richtext-content ol {
+  padding-left: 1.5em;
+  margin: 0.35em 0;
+}
+
+.richtext-content ul {
+  list-style: disc;
+}
+
+.richtext-content ol {
+  list-style: decimal;
+}
+
+.richtext-content li {
+  margin: 0.15em 0;
+}
+
+.richtext-content li > p {
+  margin: 0;
+}
+
+.richtext-content blockquote {
+  border-left: 3px solid var(--color-primary);
+  padding-left: 0.75em;
+  margin: 0.5em 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.richtext-content code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: var(--radius-sm);
+  padding: 0.1em 0.35em;
+}
+
+.richtext-content pre {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: var(--radius-md);
+  padding: 0.75em 1em;
+  margin: 0.5em 0;
+  overflow-x: auto;
+}
+
+.richtext-content pre code {
+  background: none;
+  padding: 0;
+}
+
+.richtext-content a {
+  color: var(--color-blue);
+  text-decoration: underline;
+}
+
+.richtext-content hr {
+  border: none;
+  border-top: 1px solid rgba(0, 0, 0, 0.15);
+  margin: 1em 0;
+}
+
+/* Tiptap placeholder — only when the whole editor is empty */
+.richtext-content .is-editor-empty::before {
+  content: attr(data-placeholder);
+  color: color-mix(in srgb, var(--color-text) 40%, transparent);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}

@@ -5,6 +5,7 @@ import { FieldValue } from "firebase-admin/firestore"
 import { revalidatePath } from "next/cache"
 import { getDB } from "@/lib/firebase-admin"
 import { validateNotaInput } from "@/lib/validation"
+import { sanitizeNotaHtml } from "@/lib/html"
 import {
   requireAuth,
   requireCallerRole,
@@ -21,7 +22,9 @@ export async function createNota(formData: FormData) {
   const { title } = validateNotaInput(
     typeof titleValue === "string" ? titleValue : "",
   )
-  const text = typeof textValue === "string" ? textValue.trim() : ""
+  const text = sanitizeNotaHtml(
+    typeof textValue === "string" ? textValue.trim() : "",
+  )
   const stay = stayValue === "1"
 
   if (!title && !text)
@@ -124,7 +127,10 @@ export async function updateNotaText(notaId: string, text: string) {
   const { email } = await requireAuth()
   const { ref: notaRef } = await requireMember("notas", notaId, email)
 
-  await notaRef.update({ text, updatedAt: FieldValue.serverTimestamp() })
+  await notaRef.update({
+    text: sanitizeNotaHtml(text.trim()),
+    updatedAt: FieldValue.serverTimestamp(),
+  })
   revalidatePath(`/notas/${notaId}`)
 }
 

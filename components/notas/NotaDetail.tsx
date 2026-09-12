@@ -10,8 +10,18 @@ import type { Nota } from "@/lib/types"
 import { FabButton } from "@/components/ui/FabButton"
 import { ShareButton } from "@/components/ui/ShareButton"
 import { updateNotaText } from "@/lib/actions/notas"
-import { addShortcut, removeShortcut, isShortcut as checkIsShortcut } from "@/lib/actions/shortcuts"
-import { IconSettings, IconArrowLeft, IconPin, IconPinFilled } from "@tabler/icons-react"
+import {
+  addShortcut,
+  removeShortcut,
+  isShortcut as checkIsShortcut,
+} from "@/lib/actions/shortcuts"
+import { RichTextEditor } from "@/components/notas/RichTextEditor"
+import {
+  IconSettings,
+  IconArrowLeft,
+  IconPin,
+  IconPinFilled,
+} from "@tabler/icons-react"
 
 interface Props {
   initialNota: Nota
@@ -59,7 +69,11 @@ export function NotaDetail({ initialNota, userEmail, notaId }: Props) {
         toast.success("Acceso directo añadido al inicio")
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error al actualizar acceso directo")
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Error al actualizar acceso directo",
+      )
     } finally {
       setShortcutLoading(false)
     }
@@ -92,10 +106,9 @@ export function NotaDetail({ initialNota, userEmail, notaId }: Props) {
     }, SAVE_DEBOUNCE_MS)
   }
 
-  function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    const value = e.target.value
-    setDraft(value)
-    scheduleSave(value)
+  function handleChange(html: string) {
+    setDraft(html)
+    scheduleSave(html)
   }
 
   // Flush any pending edit when the user leaves the page.
@@ -177,7 +190,11 @@ export function NotaDetail({ initialNota, userEmail, notaId }: Props) {
             size="sm"
             onClick={handleShortcutToggle}
             disabled={shortcutLoading}
-            aria-label={isShortcut ? "Eliminar acceso directo" : "Añadir acceso directo al inicio"}
+            aria-label={
+              isShortcut
+                ? "Eliminar acceso directo"
+                : "Añadir acceso directo al inicio"
+            }
           >
             {isShortcut ? <IconPinFilled size={18} /> : <IconPin size={18} />}
           </FabButton>
@@ -192,11 +209,12 @@ export function NotaDetail({ initialNota, userEmail, notaId }: Props) {
         </div>
       </div>
 
-      <textarea
-        value={draft}
+      <RichTextEditor
+        content={draft}
         onChange={handleChange}
         placeholder="Escribe aquí…"
-        className="w-full min-h-[60vh] resize-y border-2 border-black/15 rounded-md px-3 py-3 font-sans text-base leading-relaxed focus:outline-none focus:border-primary transition-colors"
+        className="w-full"
+        contentClassName="min-h-[60vh] leading-relaxed"
       />
 
       <div className="flex items-center justify-end gap-1 mt-2 text-text/40 text-xs">
