@@ -59,7 +59,7 @@ export function ShortcutCard({
   return (
     <Link
       href={href}
-      className={`relative group aspect-square w-full max-w-xs flex flex-col items-center justify-center gap-3 p-5 rounded-2xl border-2 border-black/10 ${borderColors[color] || borderColors.purple} bg-white shadow-[0_4px_0_0_#0002] transition-all duration-200 hover:shadow-[0_8px_0_0_#0003] hover:border-opacity-100 hover:-translate-y-1 active:translate-y-[2px] active:shadow-[0_2px_0_0_#0002]`}
+      className={`relative group aspect-square w-full max-w-xs flex flex-col items-center justify-center gap-3 p-5 rounded-2xl border-2 border-black/10 ${borderColors[color] || borderColors.purple} bg-white shadow-[0_4px_0_0_#0002] transition-all duration-200 hover:shadow-[0_3px_0_0_#0002] hover:border-opacity-100 hover:translate-y-px active:translate-y-1 active:shadow-[0_2px_0_0_#0002]`}
     >
       <button
         type="button"

@@ -41,7 +41,7 @@ function NavCard({
   return (
     <Link
       href={href}
-      className={`relative group flex items-center gap-4 p-5 rounded-2xl ${bgColors[color] || bgColors.purple} ${textColors[color] || textColors.purple} ${shadowColors[color] || shadowColors.purple} transition-all duration-200 hover:-translate-y-1 active:translate-y-[2px] active:shadow-none w-full max-w-lg`}
+      className={`relative group flex items-center gap-4 p-5 rounded-2xl ${bgColors[color] || bgColors.purple} ${textColors[color] || textColors.purple} ${shadowColors[color] || shadowColors.purple} transition-all duration-200 hover:translate-y-px active:translate-y-1 active:shadow-none w-full max-w-lg`}
     >
       <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-105">
         <Icon

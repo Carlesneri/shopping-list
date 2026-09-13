@@ -5,6 +5,8 @@ import { redirect } from "next/navigation"
 import { getDB } from "@/lib/firebase-admin"
 import { MediaDetail } from "@/components/media/MediaDetail"
 import { MediaFileList } from "@/components/media/MediaFileList"
+import { UploadButton } from "@/components/media/UploadButton"
+import { MediaPlayerProvider } from "@/components/media/MediaPlayerProvider"
 import { Loader } from "@/components/ui/Loader"
 import { ScrollToTop } from "@/components/ui/ScrollToTop"
 import { listMediaStorageEntries } from "@/lib/actions/media"
@@ -115,29 +117,37 @@ export default async function MediaStoragePage({ params }: Props) {
   const media = await getMediaStorage(id)
   if (!media || !media.memberEmails.includes(session.user.email)) redirect("/")
 
-  return (
-    <div className="flex flex-col gap-6 px-4 py-6 max-w-lg mx-auto w-full">
-      <MediaDetail media={media} userEmail={session.user.email} />
+  const userEmail = session.user.email
+  const userRole = media.allowedUsers.find((u) => u.email === userEmail)?.role
+  const isAdmin = userRole === "owner" || userRole === "admin"
 
-      <div className="rounded-xl border-2 border-black/10 bg-white/50 p-3">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-text/60">
-          Archivos y carpetas
-        </h2>
+  return (
+    <MediaPlayerProvider>
+      <div className="flex flex-col gap-6 px-4 py-6 max-w-lg mx-auto w-full">
+        <MediaDetail media={media} userEmail={session.user.email} />
 
         <Suspense
           fallback={
             <Loader size={48} label="Cargando archivos…" className="py-6" />
           }
         >
-          <MediaEntries
-            id={id}
-            userEmail={session.user.email}
-            allowedUsers={media.allowedUsers}
-          />
+          <div className="rounded-xl border-2 border-black/10 bg-white/50 p-3">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-text/60">
+                Archivos y carpetas
+              </h2>
+              {isAdmin && <UploadButton mediaId={id} />}
+            </div>
+            <MediaEntries
+              id={id}
+              userEmail={session.user.email}
+              allowedUsers={media.allowedUsers}
+            />
+          </div>
         </Suspense>
-      </div>
 
-      <ScrollToTop color="blue" />
-    </div>
+        <ScrollToTop color="blue" />
+      </div>
+    </MediaPlayerProvider>
   )
 }

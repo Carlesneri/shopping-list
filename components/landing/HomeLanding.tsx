@@ -79,7 +79,7 @@ export function HomeLanding() {
               <Link
                 key={section.href}
                 href={section.href}
-                className="rounded-2xl border-2 border-black/10 bg-white p-6 text-center shadow-[0_4px_0_0_rgba(0,0,0,0.06)] hover:-translate-y-1 transition-transform"
+                className="rounded-2xl border-2 border-black/10 bg-white p-6 text-center shadow-[0_4px_0_0_rgba(0,0,0,0.06)] hover:shadow-[0_3px_0_0_rgba(0,0,0,0.06)] hover:translate-y-px transition-transform"
               >
                 <div
                   className={`w-12 h-12 mx-auto mb-4 rounded-xl flex items-center justify-center ${section.iconBg}`}

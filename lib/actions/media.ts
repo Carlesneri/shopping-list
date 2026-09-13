@@ -7,42 +7,20 @@ import {
   S3Client,
   ListObjectsV2Command,
   GetObjectCommand,
+  PutObjectCommand,
   DeleteObjectCommand,
 } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { getDB } from "@/lib/firebase-admin"
 import { validateMediaInput, validateMediaConfigUpdate } from "@/lib/validation"
 import { decryptSecret, encryptSecret } from "@/lib/crypto"
+import { detectMediaKind } from "@/lib/media-utils"
 import {
   requireAuth,
   requireCallerRole,
   requireMember,
 } from "@/lib/auth-helpers"
-import type { AllowedUser, MediaKind, Role, StorageEntry } from "@/lib/types"
-
-function detectMediaKind(key: string): MediaKind | undefined {
-  const ext = key.split(".").at(-1)?.toLowerCase() ?? ""
-  if (["mp4", "mov", "webm", "mkv", "avi", "m4v", "mpeg", "mpg"].includes(ext))
-    return "video"
-  if (
-    [
-      "jpg",
-      "jpeg",
-      "png",
-      "gif",
-      "webp",
-      "heic",
-      "heif",
-      "avif",
-      "svg",
-      "bmp",
-    ].includes(ext)
-  )
-    return "image"
-  if (["mp3", "wav", "ogg", "aac", "flac", "m4a", "opus", "wma"].includes(ext))
-    return "audio"
-  return undefined
-}
+import type { AllowedUser, Role, StorageEntry } from "@/lib/types"
 
 /**
  * Validates a storage object key. Blocks path traversal segments ("." / "..")
@@ -535,4 +513,104 @@ export async function deleteMediaFolder(mediaId: string, prefix: string) {
   } while (continuationToken)
 
   revalidatePath(`/media/${mediaId}`)
+}
+
+// Files at or below this size are uploaded through a Server Action; anything
+// bigger uses a presigned PUT straight to R2 (avoids the Next.js action body
+// limit). Keep in sync with SMALL_FILE_LIMIT in UploadButton.tsx.
+const MAX_ACTION_UPLOAD_SIZE = 1024 * 1024
+const MAX_TOTAL_UPLOAD_SIZE = 10 * 1024 * 1024 * 1024
+// Presigned PUT URLs are single-use for one upload, so they expire quickly.
+const PRESIGN_EXPIRY_SECONDS = 300
+
+export async function uploadMediaEntries(mediaId: string, formData: FormData) {
+  const { email } = await requireAuth()
+
+  await requireCallerRole(
+    "media",
+    mediaId,
+    email,
+    ["owner", "admin"],
+    "subir archivos",
+  )
+
+  const { client, bucket } = await getMediaStorageClient(mediaId)
+
+  const files = formData
+    .getAll("files")
+    .filter((f): f is File => f instanceof File)
+  if (files.length === 0)
+    throw new Error("No se ha seleccionado ningún archivo")
+
+  const totalSize = files.reduce((sum, f) => sum + f.size, 0)
+  if (totalSize > MAX_TOTAL_UPLOAD_SIZE)
+    throw new Error("El tamaño total supera el límite de 10 GB")
+
+  for (const file of files) {
+    const key = file.name.trim()
+    assertValidObjectKey(key, `Clave de archivo inválida: ${file.name}`)
+
+    if (!detectMediaKind(key))
+      throw new Error(
+        `Solo se permiten archivos de vídeo, imagen o audio: ${file.name}`,
+      )
+
+    if (file.size === 0) throw new Error(`El archivo está vacío: ${file.name}`)
+    if (file.size > MAX_ACTION_UPLOAD_SIZE)
+      throw new Error(
+        `El archivo debe subirse vía URL prefirmada: ${file.name}`,
+      )
+
+    const body = new Uint8Array(await file.arrayBuffer())
+    await client.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Body: body,
+        ContentType: file.type || undefined,
+        ContentLength: body.byteLength,
+      }),
+    )
+  }
+
+  revalidatePath(`/media/${mediaId}`)
+}
+
+/**
+ * Returns a presigned PUT URL so big files go directly from the browser to
+ * R2, bypassing the Next.js Server Action body limit. The URL is scoped to a
+ * single object key and expires quickly.
+ */
+export async function getMediaUploadUrl(
+  mediaId: string,
+  key: string,
+  size: number,
+) {
+  const { email } = await requireAuth()
+
+  await requireCallerRole(
+    "media",
+    mediaId,
+    email,
+    ["owner", "admin"],
+    "subir archivos",
+  )
+
+  const trimmedKey = key.trim()
+  assertValidObjectKey(trimmedKey, "Clave de archivo inválida")
+
+  if (!detectMediaKind(trimmedKey))
+    throw new Error("Solo se permiten archivos de vídeo, imagen o audio")
+
+  if (size <= 0) throw new Error("El archivo está vacío")
+
+  const { client, bucket } = await getMediaStorageClient(mediaId)
+
+  const url = await getSignedUrl(
+    client,
+    new PutObjectCommand({ Bucket: bucket, Key: trimmedKey }),
+    { expiresIn: PRESIGN_EXPIRY_SECONDS },
+  )
+
+  return { url }
 }

@@ -32,6 +32,10 @@ function formatDate(date: Date) {
   })
 }
 
+function fileExtension(name: string) {
+  return name.split(".").pop()?.toLowerCase() ?? ""
+}
+
 function EntryIcon({ entry }: { entry: StorageEntry }) {
   if (entry.type === "folder") {
     return <IconFolder size={20} className="shrink-0 text-blue-500" />
@@ -103,9 +107,16 @@ export function MediaFileListItem({
         </div>
         <div className="flex items-center justify-between gap-3">
           {isFile && entry.size !== undefined ? (
-            <span className="shrink-0 text-xs text-text/50">
-              {formatSize(entry.size)}
-            </span>
+            <div className="flex min-w-0 items-center gap-1.5">
+              <span className="shrink-0 text-xs text-text/50">
+                {formatSize(entry.size)}
+              </span>
+              {fileExtension(entry.name) ? (
+                <span className="shrink-0 rounded border border-black/10 bg-black/[0.03] px-1.5 py-0.5 text-xs text-text/50 uppercase">
+                  {fileExtension(entry.name)}
+                </span>
+              ) : null}
+            </div>
           ) : null}
           <ActionButtons
             entryKey={entry.key}

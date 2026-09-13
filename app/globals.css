@@ -2,6 +2,7 @@
 
 @theme inline {
   --color-primary: #58cc02;
+  --color-primary-dark: #47a302;
   --color-secondary: #ce82ff;
   --color-danger: #ff4b4b;
   --color-warning: #ffc800;

@@ -36,7 +36,7 @@ export function LoginButton({
     <form action={login} className={className}>
       <button
         type="submit"
-        className={`w-full flex items-center justify-center gap-3 px-6 py-4 rounded-2xl text-white font-bold text-lg ${buttonStyles[accent]} hover:-translate-y-px active:translate-y-[2px] active:shadow-none transition-all cursor-pointer`}
+        className={`w-full flex items-center justify-center gap-3 px-6 py-4 rounded-2xl text-white font-bold text-lg ${buttonStyles[accent]} hover:translate-y-px active:translate-y-0.5 active:shadow-none transition-all cursor-pointer`}
       >
         <IconUser size={22} strokeWidth={2.5} />
         <span>{label}</span>

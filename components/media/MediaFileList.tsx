@@ -4,15 +4,15 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { IconChevronRight, IconSearch } from "@tabler/icons-react"
-import type { MediaKind, StorageEntry } from "@/lib/types"
+import type { StorageEntry } from "@/lib/types"
 import {
   getMediaEntryUrl,
   listMediaStorageEntries,
   deleteMediaEntry,
   deleteMediaFolder,
 } from "@/lib/actions/media"
-import { MediaPlayer, type SubtitleOption } from "./MediaPlayer"
 import { MediaFileListItem } from "./MediaFileListItem"
+import { useMediaPlayer } from "./MediaPlayerProvider"
 import type { ActionKind } from "./ActionButtons"
 
 function parseBreadcrumbs(path: string) {
@@ -39,6 +39,7 @@ export function MediaFileList({
   initialError?: string | null
 }) {
   const router = useRouter()
+  const { openPlayer } = useMediaPlayer()
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [loadingActions, setLoadingActions] = useState<
     Record<string, ActionKind>
@@ -48,12 +49,6 @@ export function MediaFileList({
   const [entries, setEntries] = useState(initialEntries)
   const [loadingEntries, setLoadingEntries] = useState(false)
   const [search, setSearch] = useState("")
-  const [playing, setPlaying] = useState<{
-    src: string
-    title: string
-    kind: MediaKind
-    storageKey: string
-  } | null>(null)
 
   const breadcrumbs = parseBreadcrumbs(currentPath)
 
@@ -62,6 +57,14 @@ export function MediaFileList({
       toast.error(initialError)
     }
   }, [initialError])
+
+  // Re-sync with fresh server data after a router.refresh() (e.g. after uploads)
+  // so the list isn't stuck on the initial snapshot. Also resets navigation
+  // since the fresh data is always the root listing.
+  useEffect(() => {
+    setEntries(initialEntries)
+    setCurrentPath("")
+  }, [initialEntries])
 
   const filteredEntries = search
     ? entries.filter((e) => e.name.toLowerCase().includes(search.toLowerCase()))
@@ -213,7 +216,7 @@ export function MediaFileList({
     return runEntryAction(entry, "play", async () => {
       // Direct presigned R2 URL; requires GET CORS rule on the bucket.
       const src = await getMediaEntryUrl(mediaId, entry.key)
-      setPlaying({
+      openPlayer({
         src,
         title: entry.name,
         kind,
@@ -223,10 +226,6 @@ export function MediaFileList({
       })
     })
   }
-
-  const handleClosePlayer = useCallback(() => {
-    setPlaying(null)
-  }, [])
 
   return (
     <div className="flex flex-col gap-2">
@@ -302,15 +301,6 @@ export function MediaFileList({
             }
           />
         ))}
-        {playing ? (
-          <MediaPlayer
-            src={playing.src}
-            title={playing.title}
-            kind={playing.kind}
-            storageKey={playing.storageKey}
-            onClose={handleClosePlayer}
-          />
-        ) : null}
       </ul>
       {search && filteredEntries.length === 0 && !loadingEntries ? (
         <p className="text-sm text-text/50 py-2 text-center">
