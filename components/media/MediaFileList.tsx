@@ -32,11 +32,16 @@ export function MediaFileList({
   entries: initialEntries,
   isAdmin,
   initialError,
+  currentPath,
+  onPathChange,
 }: {
   mediaId: string
   entries: StorageEntry[]
   isAdmin: boolean
   initialError?: string | null
+  /** Folder currently being browsed (e.g. "videos/"); "" for the root. */
+  currentPath: string
+  onPathChange: (path: string) => void
 }) {
   const router = useRouter()
   const { openPlayer } = useMediaPlayer()
@@ -45,7 +50,6 @@ export function MediaFileList({
     Record<string, ActionKind>
   >({})
   const hasNotified = useRef(false)
-  const [currentPath, setCurrentPath] = useState("")
   const [entries, setEntries] = useState(initialEntries)
   const [loadingEntries, setLoadingEntries] = useState(false)
   const [search, setSearch] = useState("")
@@ -58,43 +62,46 @@ export function MediaFileList({
     }
   }, [initialError])
 
-  // Re-sync with fresh server data after a router.refresh() (e.g. after uploads)
-  // so the list isn't stuck on the initial snapshot. Also resets navigation
-  // since the fresh data is always the root listing.
+  // The server always sends the root listing in `initialEntries`. Whenever it
+  // changes (after router.refresh() — uploads, folder creation, …) or the user
+  // navigates, reload: root uses the fresh snapshot directly; any other folder
+  // is re-fetched so the user stays inside it.
   useEffect(() => {
-    setEntries(initialEntries)
-    setCurrentPath("")
-  }, [initialEntries])
+    if (!currentPath) {
+      setEntries(initialEntries)
+      return
+    }
+    let cancelled = false
+    setLoadingEntries(true)
+    listMediaStorageEntries(mediaId, currentPath)
+      .then((freshEntries) => {
+        if (!cancelled) setEntries(freshEntries)
+      })
+      .catch((error) => {
+        console.error("[media:navigate] failed to load entries", error)
+        if (!cancelled)
+          toast.error(
+            error instanceof Error
+              ? error.message
+              : "Error al cargar el contenido",
+          )
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingEntries(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [mediaId, currentPath, initialEntries])
+
+  function navigateToFolder(path: string) {
+    setSelectedKey(null)
+    onPathChange(path)
+  }
 
   const filteredEntries = search
     ? entries.filter((e) => e.name.toLowerCase().includes(search.toLowerCase()))
     : entries
-
-  const loadEntries = useCallback(
-    async (path: string) => {
-      setLoadingEntries(true)
-      try {
-        const freshEntries = await listMediaStorageEntries(mediaId, path)
-        setEntries(freshEntries)
-      } catch (error) {
-        console.error("[media:navigate] failed to load entries", error)
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "Error al cargar el contenido",
-        )
-      } finally {
-        setLoadingEntries(false)
-      }
-    },
-    [mediaId],
-  )
-
-  function navigateToFolder(path: string) {
-    setSelectedKey(null)
-    setCurrentPath(path)
-    loadEntries(path)
-  }
 
   const checkForNewItems = useCallback(async () => {
     if (hasNotified.current) return
@@ -124,10 +131,6 @@ export function MediaFileList({
     const interval = setInterval(checkForNewItems, 60_000)
     return () => clearInterval(interval)
   }, [checkForNewItems])
-
-  function openPlaylist(entry: StorageEntry) {
-    window.location.href = `/media/${mediaId}/playlist?key=${encodeURIComponent(entry.key)}`
-  }
 
   async function runEntryAction(
     entry: StorageEntry,
@@ -178,34 +181,6 @@ export function MediaFileList({
       toast.success(
         entry.type === "folder" ? "Carpeta eliminada" : "Archivo eliminado",
       )
-    })
-  }
-
-  function handleOpenInVlc(entry: StorageEntry) {
-    return runEntryAction(entry, "vlc", async () => {
-      const url = await getMediaEntryUrl(mediaId, entry.key)
-
-      if (/android/i.test(navigator.userAgent)) {
-        const parsed = new URL(url)
-        window.location.href = `intent://${parsed.host}${parsed.pathname}${parsed.search}#Intent;scheme=https;package=org.videolan.vlc;S.url=${encodeURIComponent(url)};end`
-        toast.info("Abriendo en VLC…", {
-          description:
-            "Si VLC no se abrió, usa el botón de playlist o descarga el archivo.",
-          action: { label: "Playlist", onClick: () => openPlaylist(entry) },
-        })
-      } else if (/mac/i.test(navigator.platform)) {
-        openPlaylist(entry)
-        toast.info("Playlist descargada", {
-          description: "Ábrela con VLC para reproducir el vídeo.",
-        })
-      } else {
-        window.location.href = `vlc://${url}`
-        toast.info("Abriendo en VLC…", {
-          description:
-            "Si VLC no se abrió, usa el botón de playlist o descarga el archivo.",
-          action: { label: "Playlist", onClick: () => openPlaylist(entry) },
-        })
-      }
     })
   }
 
@@ -290,7 +265,6 @@ export function MediaFileList({
             }
             isAdmin={isAdmin}
             onPlay={() => handleOpen(entry)}
-            onVlc={() => handleOpenInVlc(entry)}
             onDownload={() => handleDownloadFile(entry)}
             onCopyUrl={() => handleCopyUrl(entry)}
             onDelete={() => handleDeleteEntry(entry)}

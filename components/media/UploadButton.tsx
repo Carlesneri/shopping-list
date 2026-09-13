@@ -23,11 +23,18 @@ const iconClasses = {
   pink: "text-pink",
 } as const
 
+// Shared card style for the media section header buttons (upload, new folder).
+export const fileCardButtonClass =
+  "shrink-0 cursor-pointer rounded-2xl border-2 border-black/10 bg-white px-3 py-2 flex items-center gap-1.5 text-sm font-semibold text-text/60 shadow-[0_4px_0_0_#0002] transition-all duration-200 hover:shadow-[0_3px_0_0_#0002] hover:border-opacity-100 hover:translate-y-px active:translate-y-1 active:shadow-none disabled:opacity-40 disabled:cursor-not-allowed disabled:translate-y-0 disabled:shadow-none"
+
 export function UploadButton({
   mediaId,
+  prefix = "",
   color = "blue",
 }: {
   mediaId: string
+  /** Folder prefix the files are uploaded into (e.g. "videos/"). */
+  prefix?: string
   color?: Color
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
@@ -38,14 +45,16 @@ export function UploadButton({
   const busy = uploading || isPending
 
   async function uploadFile(file: File) {
+    const key = `${prefix}${file.name}`
     if (file.size <= SMALL_FILE_LIMIT) {
       const formData = new FormData()
       formData.append("files", file)
+      formData.append("prefix", prefix)
       await uploadMediaEntries(mediaId, formData)
       return
     }
 
-    const { url } = await getMediaUploadUrl(mediaId, file.name, file.size)
+    const { url } = await getMediaUploadUrl(mediaId, key, file.size)
     const response = await fetch(url, {
       method: "PUT",
       body: file,

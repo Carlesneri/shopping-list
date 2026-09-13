@@ -59,7 +59,6 @@ interface MediaFileListItemProps {
   loadingAction: { key: string; action: ActionKind } | null
   isAdmin: boolean
   onPlay: () => void
-  onVlc: () => void
   onDownload: () => void
   onCopyUrl: () => void
   onDelete: () => void
@@ -73,7 +72,6 @@ export function MediaFileListItem({
   loadingAction,
   isAdmin,
   onPlay,
-  onVlc,
   onDownload,
   onCopyUrl,
   onDelete,
@@ -126,7 +124,6 @@ export function MediaFileListItem({
             isAdmin={isAdmin}
             loading={loadingAction}
             onPlay={onPlay}
-            onVlc={onVlc}
             onDownload={onDownload}
             onCopyUrl={onCopyUrl}
             onDelete={onDelete}

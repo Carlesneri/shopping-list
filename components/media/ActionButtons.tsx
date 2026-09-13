@@ -2,7 +2,6 @@
 
 import {
   IconDownload,
-  IconExternalLink,
   IconHeadphones,
   IconLink,
   IconLoader2,
@@ -12,7 +11,7 @@ import {
 } from "@tabler/icons-react"
 import type { MediaKind } from "@/lib/types"
 
-export type ActionKind = "play" | "vlc" | "download" | "copy" | "delete"
+export type ActionKind = "play" | "download" | "copy" | "delete"
 
 interface ActionLoading {
   key: string
@@ -27,7 +26,6 @@ interface Props {
   isAdmin: boolean
   loading: ActionLoading | null
   onPlay: () => void
-  onVlc: () => void
   onDownload: () => void
   onCopyUrl: () => void
   onDelete: () => void
@@ -41,7 +39,6 @@ export function ActionButtons({
   isAdmin,
   loading,
   onPlay,
-  onVlc,
   onDownload,
   onCopyUrl,
   onDelete,
@@ -80,22 +77,6 @@ export function ActionButtons({
             <IconHeadphones size={20} color="currentColor" />
           ) : (
             <IconPlayerPlay size={20} fill="currentColor" />
-          )}
-        </button>
-      ) : null}
-      {mediaKind === "video" ? (
-        <button
-          type="button"
-          onClick={onVlc}
-          disabled={isBusy}
-          className={btn}
-          title="Abrir vídeo en VLC (reproduce MKV con subtítulos y audio)"
-          aria-label={`Abrir ${entryName} en VLC`}
-        >
-          {loadingKind === "vlc" ? (
-            <IconLoader2 size={20} className="animate-spin" />
-          ) : (
-            <IconExternalLink size={20} color="currentColor" />
           )}
         </button>
       ) : null}

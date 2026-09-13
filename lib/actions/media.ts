@@ -33,6 +33,17 @@ function assertValidObjectKey(value: string, message: string) {
   }
 }
 
+/**
+ * Validates a folder prefix (e.g. "videos/"). Unlike a full object key, an
+ * empty prefix (the bucket root) is valid; "." / ".." segments are still
+ * blocked.
+ */
+function assertValidObjectPrefix(value: string, message: string) {
+  if (value.split("/").some((segment) => segment === "." || segment === "..")) {
+    throw new Error(message)
+  }
+}
+
 const R2_SUFFIX = ".r2.cloudflarestorage.com"
 const LEGACY_R2_SUFFIX = ".cloudflarestorage.com"
 
@@ -536,6 +547,9 @@ export async function uploadMediaEntries(mediaId: string, formData: FormData) {
 
   const { client, bucket } = await getMediaStorageClient(mediaId)
 
+  const prefix = (formData.get("prefix") as string | null)?.trim() ?? ""
+  assertValidObjectPrefix(prefix, "Ruta de carpeta inválida")
+
   const files = formData
     .getAll("files")
     .filter((f): f is File => f instanceof File)
@@ -547,7 +561,7 @@ export async function uploadMediaEntries(mediaId: string, formData: FormData) {
     throw new Error("El tamaño total supera el límite de 10 GB")
 
   for (const file of files) {
-    const key = file.name.trim()
+    const key = `${prefix}${file.name.trim()}`
     assertValidObjectKey(key, `Clave de archivo inválida: ${file.name}`)
 
     if (!detectMediaKind(key))
@@ -613,4 +627,45 @@ export async function getMediaUploadUrl(
   )
 
   return { url }
+}
+
+/**
+ * Creates an empty "folder" by writing a zero-byte object whose key ends in
+ * "/", the standard S3/R2 convention for representing directories.
+ */
+export async function createMediaFolder(
+  mediaId: string,
+  prefix: string,
+  name: string,
+) {
+  const { email } = await requireAuth()
+
+  await requireCallerRole(
+    "media",
+    mediaId,
+    email,
+    ["owner", "admin"],
+    "crear carpetas",
+  )
+
+  const { client, bucket } = await getMediaStorageClient(mediaId)
+
+  const folderName = name.trim().replace(/\/+$/, "")
+  if (!folderName) throw new Error("El nombre no puede estar vacío")
+  if (folderName.includes("/"))
+    throw new Error("El nombre no puede contener barras")
+
+  const trimmedPrefix = prefix.trim()
+  assertValidObjectPrefix(trimmedPrefix, "Ruta de carpeta inválida")
+
+  await client.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: `${trimmedPrefix}${folderName}/`,
+      Body: new Uint8Array(0),
+      ContentLength: 0,
+    }),
+  )
+
+  revalidatePath(`/media/${mediaId}`)
 }

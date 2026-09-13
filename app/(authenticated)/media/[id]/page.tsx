@@ -4,8 +4,7 @@ import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import { getDB } from "@/lib/firebase-admin"
 import { MediaDetail } from "@/components/media/MediaDetail"
-import { MediaFileList } from "@/components/media/MediaFileList"
-import { UploadButton } from "@/components/media/UploadButton"
+import { MediaFilesSection } from "@/components/media/MediaFilesSection"
 import { MediaPlayerProvider } from "@/components/media/MediaPlayerProvider"
 import { Loader } from "@/components/ui/Loader"
 import { ScrollToTop } from "@/components/ui/ScrollToTop"
@@ -87,26 +86,14 @@ async function MediaEntries({
   const userEntry = allowedUsers.find((u) => u.email === userEmail)
   const isAdmin = userEntry?.role === "owner" || userEntry?.role === "admin"
 
-  if (loadError) {
-    return (
-      <MediaFileList
-        mediaId={id}
-        entries={[]}
-        isAdmin={isAdmin}
-        initialError={loadError}
-      />
-    )
-  }
-
-  if (entries.length === 0) {
-    return (
-      <p className="text-sm text-text/60">
-        Este bucket está vacío o no se pudo cargar su contenido.
-      </p>
-    )
-  }
-
-  return <MediaFileList mediaId={id} entries={entries} isAdmin={isAdmin} />
+  return (
+    <MediaFilesSection
+      mediaId={id}
+      isAdmin={isAdmin}
+      entries={entries}
+      initialError={loadError}
+    />
+  )
 }
 
 export default async function MediaStoragePage({ params }: Props) {
@@ -116,10 +103,6 @@ export default async function MediaStoragePage({ params }: Props) {
 
   const media = await getMediaStorage(id)
   if (!media || !media.memberEmails.includes(session.user.email)) redirect("/")
-
-  const userEmail = session.user.email
-  const userRole = media.allowedUsers.find((u) => u.email === userEmail)?.role
-  const isAdmin = userRole === "owner" || userRole === "admin"
 
   return (
     <MediaPlayerProvider>
@@ -132,12 +115,6 @@ export default async function MediaStoragePage({ params }: Props) {
           }
         >
           <div className="rounded-xl border-2 border-black/10 bg-white/50 p-3">
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-text/60">
-                Archivos y carpetas
-              </h2>
-              {isAdmin && <UploadButton mediaId={id} />}
-            </div>
             <MediaEntries
               id={id}
               userEmail={session.user.email}
