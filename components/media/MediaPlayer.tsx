@@ -158,11 +158,16 @@ export function MediaPlayer({ src, title, kind, onClose }: Props) {
             <audio src={src} controls className="w-full" />
           </div>
         ) : (
-          <div ref={videoContainerRef} className="relative aspect-video w-full bg-black">
+          <div
+            ref={videoContainerRef}
+            className="relative aspect-video w-full bg-black"
+          >
             <movi-player
               ref={playerRef}
               src={src}
               controls
+              autoplay
+              playsinline
               class={`h-full w-full ${playerReady ? "" : "opacity-0"}`}
             ></movi-player>
             {!playerReady && (
@@ -181,8 +186,8 @@ export function MediaPlayer({ src, title, kind, onClose }: Props) {
                   El navegador bloqueó el vídeo por CORS
                 </p>
                 <p className="max-w-md text-xs leading-relaxed text-white/70">
-                  Añade esta regla CORS a tu bucket de Cloudflare R2 (Settings
-                  → CORS policy) para permitir la lectura de archivos:
+                  Añade esta regla CORS a tu bucket de Cloudflare R2 (Settings →
+                  CORS policy) para permitir la lectura de archivos:
                 </p>
                 <pre className="max-w-full overflow-x-auto rounded-lg border border-white/20 bg-white/10 p-3 text-left font-mono text-[11px] leading-relaxed text-white">
                   {corsRuleSnippet()}

@@ -11,7 +11,6 @@ import {
   IconTrash,
 } from "@tabler/icons-react"
 import type { MediaKind } from "@/lib/types"
-import { isVideoNativelyUnsupported } from "@/lib/media-utils"
 
 export type ActionKind = "play" | "vlc" | "download" | "copy" | "delete"
 
@@ -48,16 +47,8 @@ export function ActionButtons({
   onDelete,
 }: Props) {
   const loadingKind = loading?.key === entryKey ? loading.action : null
-
   const isBusy = loadingKind !== null
-  const baseBtn =
-    "shrink-0 cursor-pointer rounded-md p-1.5 transition-colors disabled:cursor-wait"
-  const isUnsupportedVideo =
-    mediaKind === "video" && isVideoNativelyUnsupported(entryKey)
-  const playBtn = isUnsupportedVideo
-    ? `${baseBtn} text-emerald-500 hover:text-emerald-700 disabled:text-emerald-500/40`
-    : `${baseBtn} text-blue-400 hover:text-blue-600 disabled:text-blue-400/40`
-  const btn = `${baseBtn} text-blue-400 hover:text-blue-600 disabled:text-blue-400/40`
+  const btn = "shrink-0 cursor-pointer rounded-md p-1.5 transition-colors disabled:cursor-wait text-primary hover:text-primary/80 disabled:text-primary/40"
 
   return (
     <div className="ml-auto flex items-center gap-2">
@@ -66,7 +57,7 @@ export function ActionButtons({
           type="button"
           onClick={onPlay}
           disabled={isBusy}
-          className={playBtn}
+          className={btn}
           title={
             mediaKind === "image"
               ? "Ver imagen en pantalla completa"
@@ -83,9 +74,9 @@ export function ActionButtons({
           {loadingKind === "play" ? (
             <IconLoader2 size={20} className="animate-spin" />
           ) : mediaKind === "image" ? (
-            <IconMaximize size={20} />
+            <IconMaximize size={20} color="currentColor" />
           ) : mediaKind === "audio" ? (
-            <IconHeadphones size={20} />
+            <IconHeadphones size={20} color="currentColor" />
           ) : (
             <IconPlayerPlay size={20} fill="currentColor" />
           )}
@@ -103,7 +94,7 @@ export function ActionButtons({
           {loadingKind === "vlc" ? (
             <IconLoader2 size={20} className="animate-spin" />
           ) : (
-            <IconExternalLink size={20} />
+            <IconExternalLink size={20} color="currentColor" />
           )}
         </button>
       ) : null}
@@ -120,7 +111,7 @@ export function ActionButtons({
           {loadingKind === "download" ? (
             <IconLoader2 size={20} className="animate-spin" />
           ) : (
-            <IconDownload size={20} />
+            <IconDownload size={20} color="currentColor" />
           )}
         </button>
       ) : null}
