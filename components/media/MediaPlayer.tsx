@@ -1,9 +1,28 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { IconAlertCircle, IconLoader2, IconX } from "@tabler/icons-react"
 import { toast } from "sonner"
 import type { MediaKind } from "@/lib/types"
+
+// Remembered playback positions: keyed by a stable media id (the presigned
+// URL changes on every open, so it can't be the key).
+const POSITION_PREFIX = "movi-pos:"
+// Positions below this are considered "never really started".
+const MIN_RESUME_SECONDS = 3
+
+function readSavedPosition(key?: string): number {
+  if (!key || typeof window === "undefined") return 0
+  try {
+    const raw = window.localStorage.getItem(POSITION_PREFIX + key)
+    const seconds = raw ? Number.parseFloat(raw) : 0
+    return Number.isFinite(seconds) && seconds >= MIN_RESUME_SECONDS
+      ? seconds
+      : 0
+  } catch {
+    return 0
+  }
+}
 
 function corsRuleSnippet(): string {
   // The bucket must allow the exact origin the app is served from, since
@@ -28,14 +47,46 @@ interface Props {
   src: string
   title: string
   kind: MediaKind
+  /** Stable identifier (e.g. `${mediaId}:${entryKey}`) used to remember the playback position. */
+  storageKey?: string
   onClose: () => void
 }
 
-export function MediaPlayer({ src, title, kind, onClose }: Props) {
+export function MediaPlayer({ src, title, kind, storageKey, onClose }: Props) {
   const [playerReady, setPlayerReady] = useState(false)
   const [corsBlocked, setCorsBlocked] = useState(false)
   const playerRef = useRef<HTMLElement>(null)
+  const audioRef = useRef<HTMLAudioElement>(null)
   const videoContainerRef = useRef<HTMLDivElement>(null)
+
+  const savedSeconds = useMemo(
+    () => readSavedPosition(storageKey),
+    [storageKey],
+  )
+  const lastTimeRef = useRef(0)
+  const endedRef = useRef(false)
+  const lastSaveAtRef = useRef(0)
+
+  // Persist the last known position (called on pause, throttled on
+  // timeupdate, and once when the player closes).
+  const savePosition = useCallback(() => {
+    if (!storageKey || endedRef.current) return
+    const seconds = lastTimeRef.current
+    if (seconds < MIN_RESUME_SECONDS) return
+    try {
+      window.localStorage.setItem(
+        POSITION_PREFIX + storageKey,
+        String(Math.floor(seconds)),
+      )
+    } catch {
+      // Storage unavailable (private mode, quota) — position just isn't kept.
+    }
+  }, [storageKey])
+
+  // Save when the player closes.
+  useEffect(() => {
+    return () => savePosition()
+  }, [savePosition])
 
   useEffect(() => {
     let cancelled = false
@@ -88,6 +139,95 @@ export function MediaPlayer({ src, title, kind, onClose }: Props) {
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
   }, [onClose])
+
+  // Track the movi-player position: update the ref on every timeupdate,
+  // persist on pause (and throttled while playing), clear on end.
+  useEffect(() => {
+    if (kind !== "video" || !storageKey) return
+    const player = playerRef.current
+    if (!player) return
+    const currentTime = () =>
+      (player as unknown as { currentTime?: number }).currentTime ?? 0
+
+    function onTimeUpdate() {
+      lastTimeRef.current = currentTime()
+      if (Date.now() - lastSaveAtRef.current > 5000) {
+        lastSaveAtRef.current = Date.now()
+        savePosition()
+      }
+    }
+    function onPause() {
+      lastTimeRef.current = currentTime()
+      savePosition()
+    }
+    function onEnded() {
+      endedRef.current = true
+      try {
+        window.localStorage.removeItem(POSITION_PREFIX + storageKey)
+      } catch {
+        // Ignore storage failures — worst case the video resumes near the end.
+      }
+    }
+
+    player.addEventListener("timeupdate", onTimeUpdate)
+    player.addEventListener("pause", onPause)
+    player.addEventListener("ended", onEnded)
+    // movi-player bug: after seeking, audio stays silent (stale/suspended
+    // AudioContext) until the user mutes and unmutes. Toggling the element's
+    // `muted` property drives the same recovery path automatically. Skipped
+    // when the user has the player muted, since nothing is audible then.
+    const onSeeked = () => {
+      const el = player as unknown as { muted?: boolean }
+      if (el.muted) return
+      el.muted = true
+      queueMicrotask(() => {
+        el.muted = false
+      })
+    }
+    player.addEventListener("seeked", onSeeked)
+    return () => {
+      player.removeEventListener("timeupdate", onTimeUpdate)
+      player.removeEventListener("pause", onPause)
+      player.removeEventListener("ended", onEnded)
+      player.removeEventListener("seeked", onSeeked)
+    }
+  }, [kind, storageKey, savePosition])
+
+  // Same tracking for the plain <audio> element.
+  useEffect(() => {
+    if (kind !== "audio" || !storageKey) return
+    const audio = audioRef.current
+    if (!audio) return
+
+    const onTimeUpdate = () => {
+      lastTimeRef.current = audio.currentTime
+      if (Date.now() - lastSaveAtRef.current > 5000) {
+        lastSaveAtRef.current = Date.now()
+        savePosition()
+      }
+    }
+    const onPause = () => {
+      lastTimeRef.current = audio.currentTime
+      savePosition()
+    }
+    const onEnded = () => {
+      endedRef.current = true
+      try {
+        window.localStorage.removeItem(POSITION_PREFIX + storageKey)
+      } catch {
+        // Ignore storage failures.
+      }
+    }
+
+    audio.addEventListener("timeupdate", onTimeUpdate)
+    audio.addEventListener("pause", onPause)
+    audio.addEventListener("ended", onEnded)
+    return () => {
+      audio.removeEventListener("timeupdate", onTimeUpdate)
+      audio.removeEventListener("pause", onPause)
+      audio.removeEventListener("ended", onEnded)
+    }
+  }, [kind, storageKey, savePosition])
 
   useEffect(() => {
     if (kind !== "video") return
@@ -155,7 +295,18 @@ export function MediaPlayer({ src, title, kind, onClose }: Props) {
           </div>
         ) : kind === "audio" ? (
           <div className="flex items-center justify-center bg-black px-4 py-8">
-            <audio src={src} controls className="w-full" />
+            <audio
+              ref={audioRef}
+              src={src}
+              controls
+              autoPlay
+              onLoadedMetadata={(event) => {
+                if (savedSeconds > 0) {
+                  event.currentTarget.currentTime = savedSeconds
+                }
+              }}
+              className="w-full"
+            />
           </div>
         ) : (
           <div
@@ -168,6 +319,10 @@ export function MediaPlayer({ src, title, kind, onClose }: Props) {
               controls
               autoplay
               playsinline
+              // Resume from the last saved position, if any.
+              startat={
+                savedSeconds > 0 ? String(Math.floor(savedSeconds)) : undefined
+              }
               class={`h-full w-full ${playerReady ? "" : "opacity-0"}`}
             ></movi-player>
             {!playerReady && (

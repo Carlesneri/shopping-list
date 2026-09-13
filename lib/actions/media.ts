@@ -44,6 +44,17 @@ function detectMediaKind(key: string): MediaKind | undefined {
   return undefined
 }
 
+/**
+ * Validates a storage object key. Blocks path traversal segments ("." / "..")
+ * while still allowing file names that contain consecutive dots
+ * (e.g. "whatever..mkv").
+ */
+function assertValidObjectKey(value: string, message: string) {
+  if (!value || value.split("/").some((segment) => segment === "." || segment === "..")) {
+    throw new Error(message)
+  }
+}
+
 const R2_SUFFIX = ".r2.cloudflarestorage.com"
 const LEGACY_R2_SUFFIX = ".cloudflarestorage.com"
 
@@ -295,9 +306,7 @@ export async function getMediaEntryUrl(
   const { client, bucket } = await getMediaStorageClient(mediaId)
 
   const trimmedKey = key.trim()
-  if (!trimmedKey || trimmedKey.includes("..")) {
-    throw new Error("Clave de archivo inválida")
-  }
+  assertValidObjectKey(trimmedKey, "Clave de archivo inválida")
 
   const fileName = trimmedKey.split("/").at(-1) ?? trimmedKey
 
@@ -470,9 +479,7 @@ export async function deleteMediaEntry(mediaId: string, key: string) {
   const { client, bucket } = await getMediaStorageClient(mediaId)
 
   const trimmedKey = key.trim()
-  if (!trimmedKey || trimmedKey.includes("..")) {
-    throw new Error("Clave de archivo inválida")
-  }
+  assertValidObjectKey(trimmedKey, "Clave de archivo inválida")
 
   await client.send(
     new DeleteObjectCommand({
@@ -498,9 +505,7 @@ export async function deleteMediaFolder(mediaId: string, prefix: string) {
   const { client, bucket } = await getMediaStorageClient(mediaId)
 
   const trimmedPrefix = prefix.trim()
-  if (!trimmedPrefix || trimmedPrefix.includes("..")) {
-    throw new Error("Prefijo de carpeta inválido")
-  }
+  assertValidObjectKey(trimmedPrefix, "Prefijo de carpeta inválido")
 
   let continuationToken: string | undefined
   do {

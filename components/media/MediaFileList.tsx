@@ -52,6 +52,7 @@ export function MediaFileList({
     src: string
     title: string
     kind: MediaKind
+    storageKey: string
   } | null>(null)
 
   const breadcrumbs = parseBreadcrumbs(currentPath)
@@ -212,7 +213,14 @@ export function MediaFileList({
     return runEntryAction(entry, "play", async () => {
       // Direct presigned R2 URL; requires GET CORS rule on the bucket.
       const src = await getMediaEntryUrl(mediaId, entry.key)
-      setPlaying({ src, title: entry.name, kind })
+      setPlaying({
+        src,
+        title: entry.name,
+        kind,
+        // Stable id (the presigned URL changes every time) so the player
+        // can remember/restore the playback position.
+        storageKey: `${mediaId}:${entry.key}`,
+      })
     })
   }
 
@@ -299,6 +307,7 @@ export function MediaFileList({
             src={playing.src}
             title={playing.title}
             kind={playing.kind}
+            storageKey={playing.storageKey}
             onClose={handleClosePlayer}
           />
         ) : null}
