@@ -6,13 +6,15 @@ import { toast } from "sonner"
 import { IconLoader2, IconUpload } from "@tabler/icons-react"
 import { getMediaUploadUrl, uploadMediaEntries } from "@/lib/actions/media"
 import { detectMediaKind } from "@/lib/media-utils"
+import type { StorageEntry } from "@/lib/types"
 
 type Color = "green" | "blue" | "purple" | "orange" | "pink"
 
-// Files at or below this size go through a Server Action; anything bigger
-// uses a presigned PUT directly to R2. Keep in sync with MAX_ACTION_UPLOAD_SIZE
-// in lib/actions/media.ts.
+// Upload routes by size: ≤1 MB through a Server Action, ≤5 GB with a single
+// presigned PUT (R2's per-request limit). Keep SMALL_FILE_LIMIT in sync with
+// MAX_ACTION_UPLOAD_SIZE in lib/actions/media.ts.
 const SMALL_FILE_LIMIT = 1024 * 1024
+const SINGLE_PUT_LIMIT = 5 * 1024 * 1024 * 1024
 const MAX_TOTAL_UPLOAD_SIZE = 10 * 1024 * 1024 * 1024
 
 const iconClasses = {
@@ -31,11 +33,16 @@ export function UploadButton({
   mediaId,
   prefix = "",
   color = "blue",
+  onUploadStart,
+  onUploadEnd,
 }: {
   mediaId: string
   /** Folder prefix the files are uploaded into (e.g. "videos/"). */
   prefix?: string
   color?: Color
+  /** Notifies the list so the uploading file shows as a disabled row. */
+  onUploadStart?: (entry: StorageEntry) => void
+  onUploadEnd?: (key: string) => void
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
@@ -65,6 +72,24 @@ export function UploadButton({
     }
   }
 
+  // Wraps an upload so the file shows up in the list as a disabled row with
+  // a spinner until it finishes (then the refresh swaps in the real entry).
+  async function uploadFileWithIndicator(file: File) {
+    const placeholderKey = `uploading:${Date.now()}:${Math.random()}:${file.name}`
+    onUploadStart?.({
+      key: placeholderKey,
+      name: file.name,
+      type: "file",
+      mediaKind: detectMediaKind(file.name),
+      size: file.size,
+    })
+    try {
+      await uploadFile(file)
+    } finally {
+      onUploadEnd?.(placeholderKey)
+    }
+  }
+
   function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return
 
@@ -82,7 +107,20 @@ export function UploadButton({
       return
     }
 
-    const list = mediaFiles
+    const list = mediaFiles.filter((f) => f.size <= SINGLE_PUT_LIMIT)
+    const tooBig = mediaFiles.length - list.length
+    if (tooBig > 0) {
+      toast.error(
+        tooBig === 1
+          ? "Un archivo supera el límite de 5 GB por archivo"
+          : `${tooBig} archivos superan el límite de 5 GB por archivo`,
+      )
+    }
+    if (list.length === 0) {
+      if (inputRef.current) inputRef.current.value = ""
+      return
+    }
+
     const totalSize = list.reduce((sum, f) => sum + f.size, 0)
     if (totalSize > MAX_TOTAL_UPLOAD_SIZE) {
       toast.error("El tamaño total supera el límite de 10 GB")
@@ -91,7 +129,7 @@ export function UploadButton({
     }
 
     setUploading(true)
-    Promise.allSettled(list.map(uploadFile))
+    Promise.allSettled(list.map(uploadFileWithIndicator))
       .then((results) => {
         const failures = results.filter((r) => r.status === "rejected")
         if (failures.length === 0) {

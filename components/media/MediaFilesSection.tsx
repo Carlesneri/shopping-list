@@ -26,6 +26,15 @@ export function MediaFilesSection({
 }: Props) {
   const [currentPath, setCurrentPath] = useState("")
   const [folderFormOpen, setFolderFormOpen] = useState(false)
+  const [uploadingEntries, setUploadingEntries] = useState<StorageEntry[]>([])
+
+  function handleUploadStart(entry: StorageEntry) {
+    setUploadingEntries((prev) => [...prev, entry])
+  }
+
+  function handleUploadEnd(key: string) {
+    setUploadingEntries((prev) => prev.filter((e) => e.key !== key))
+  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -36,7 +45,12 @@ export function MediaFilesSection({
         {isAdmin ? (
           <div className="flex items-center gap-2">
             <CreateFolderButton onClick={() => setFolderFormOpen((v) => !v)} />
-            <UploadButton mediaId={mediaId} prefix={currentPath} />
+            <UploadButton
+              mediaId={mediaId}
+              prefix={currentPath}
+              onUploadStart={handleUploadStart}
+              onUploadEnd={handleUploadEnd}
+            />
           </div>
         ) : null}
       </div>
@@ -54,6 +68,7 @@ export function MediaFilesSection({
         initialError={initialError}
         currentPath={currentPath}
         onPathChange={setCurrentPath}
+        uploadingEntries={uploadingEntries}
       />
     </div>
   )

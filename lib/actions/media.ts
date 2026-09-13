@@ -8,6 +8,7 @@ import {
   ListObjectsV2Command,
   GetObjectCommand,
   PutObjectCommand,
+  CopyObjectCommand,
   DeleteObjectCommand,
 } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
@@ -28,7 +29,10 @@ import type { AllowedUser, Role, StorageEntry } from "@/lib/types"
  * (e.g. "whatever..mkv").
  */
 function assertValidObjectKey(value: string, message: string) {
-  if (!value || value.split("/").some((segment) => segment === "." || segment === "..")) {
+  if (
+    !value ||
+    value.split("/").some((segment) => segment === "." || segment === "..")
+  ) {
     throw new Error(message)
   }
 }
@@ -169,7 +173,10 @@ async function getMediaDoc(mediaId: string) {
   return { ref: snap.ref, data }
 }
 
-export async function getMediaStorageClient(mediaId: string) {
+export async function getMediaStorageClient(
+  mediaId: string,
+  { requestTimeoutMs = 15_000 }: { requestTimeoutMs?: number } = {},
+) {
   const { email } = await requireAuth()
 
   const { data } = await requireMember("media", mediaId, email)
@@ -200,8 +207,13 @@ export async function getMediaStorageClient(mediaId: string) {
     endpoint,
     forcePathStyle: true,
     maxAttempts: 1,
-    // Never let a request hang: all R2 calls are user-triggered.
-    requestHandler: { requestTimeout: 15_000 },
+    // Never let a request hang: all R2 calls are user-triggered. Requests
+    // exceeding the timeout are turned into errors (instead of the SDK's
+    // dangling retry warning) so callers get a clear failure message.
+    requestHandler: {
+      requestTimeout: requestTimeoutMs,
+      throwOnRequestTimeout: true,
+    },
     // R2 rejects presigned URLs that include x-amz-checksum-mode (added by
     // default in recent SDK versions), so only send checksums when required.
     requestChecksumCalculation: "WHEN_REQUIRED",
@@ -531,8 +543,8 @@ export async function deleteMediaFolder(mediaId: string, prefix: string) {
 // limit). Keep in sync with SMALL_FILE_LIMIT in UploadButton.tsx.
 const MAX_ACTION_UPLOAD_SIZE = 1024 * 1024
 const MAX_TOTAL_UPLOAD_SIZE = 10 * 1024 * 1024 * 1024
-// Presigned PUT URLs are single-use for one upload, so they expire quickly.
-const PRESIGN_EXPIRY_SECONDS = 300
+// Presigned URLs use the maximum expiry S3/R2 allows: 7 days.
+const PRESIGN_EXPIRY_SECONDS = 60 * 60 * 24 * 7
 
 export async function uploadMediaEntries(mediaId: string, formData: FormData) {
   const { email } = await requireAuth()
@@ -617,6 +629,9 @@ export async function getMediaUploadUrl(
     throw new Error("Solo se permiten archivos de vídeo, imagen o audio")
 
   if (size <= 0) throw new Error("El archivo está vacío")
+  // Single-shot PUT tops out at 5 GB in R2.
+  if (size > COPY_MAX_SIZE)
+    throw new Error("El archivo supera el límite de 5 GB por archivo")
 
   const { client, bucket } = await getMediaStorageClient(mediaId)
 
@@ -668,4 +683,232 @@ export async function createMediaFolder(
   )
 
   revalidatePath(`/media/${mediaId}`)
+}
+
+/** S3 CopySource requires the key to be URL-encoded, segment by segment. */
+function encodeCopySource(bucket: string, key: string) {
+  return `${bucket}/${key.split("/").map(encodeURIComponent).join("/")}`
+}
+
+// Single-shot CopyObject and PUT top out at 5 GB in S3/R2.
+const COPY_MAX_SIZE = 5 * 1024 * 1024 * 1024
+
+const MAX_FOLDERS = 200
+
+/**
+ * Lists every folder path in the bucket (depth-first). Used by the "move"
+ * picker to offer nested destinations beyond the current listing.
+ */
+export async function listMediaFolders(mediaId: string): Promise<string[]> {
+  const { email } = await requireAuth()
+
+  await requireMember("media", mediaId, email)
+
+  const { client, bucket } = await getMediaStorageClient(mediaId)
+
+  const folders: string[] = []
+  const stack = [""]
+  while (stack.length > 0 && folders.length < MAX_FOLDERS) {
+    const prefix = stack.pop()!
+    let continuationToken: string | undefined
+    do {
+      const response = await client.send(
+        new ListObjectsV2Command({
+          Bucket: bucket,
+          Prefix: prefix,
+          Delimiter: "/",
+          ContinuationToken: continuationToken,
+        }),
+      )
+
+      for (const commonPrefix of response.CommonPrefixes ?? []) {
+        const folder = commonPrefix.Prefix ?? ""
+        if (!folder) continue
+        folders.push(folder)
+        if (folders.length < MAX_FOLDERS) stack.push(folder)
+      }
+
+      continuationToken = response.IsTruncated
+        ? response.NextContinuationToken
+        : undefined
+    } while (continuationToken && folders.length < MAX_FOLDERS)
+  }
+
+  return folders.sort((a, b) => a.localeCompare(b))
+}
+
+/**
+ * Moves one entry (a file or a whole folder) with an already-configured S3
+ * client. S3 has no rename, so this is copy + delete. Returns false when the
+ * entry is already at the destination (nothing to do).
+ */
+async function moveEntryWithClient(
+  client: S3Client,
+  bucket: string,
+  fromKey: string,
+  toPrefix: string,
+): Promise<boolean> {
+  if (fromKey.endsWith("/")) {
+    if (toPrefix.startsWith(fromKey))
+      throw new Error("No se puede mover una carpeta dentro de sí misma")
+
+    const folderName = fromKey
+      .replace(/\/+$/, "")
+      .split("/")
+      .filter(Boolean)
+      .at(-1)
+    if (!folderName) throw new Error("Clave de origen inválida")
+    const newPrefix = `${toPrefix}${folderName}/`
+    if (newPrefix === fromKey) return false
+
+    let continuationToken: string | undefined
+    do {
+      const response = await client.send(
+        new ListObjectsV2Command({
+          Bucket: bucket,
+          Prefix: fromKey,
+          ContinuationToken: continuationToken,
+        }),
+      )
+
+      for (const obj of response.Contents ?? []) {
+        const key = obj.Key!
+        const newKey = `${newPrefix}${key.slice(fromKey.length)}`
+        await client.send(
+          new CopyObjectCommand({
+            Bucket: bucket,
+            CopySource: encodeCopySource(bucket, key),
+            Key: newKey,
+          }),
+        )
+        await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }))
+      }
+
+      continuationToken = response.IsTruncated
+        ? response.NextContinuationToken
+        : undefined
+    } while (continuationToken)
+    return true
+  }
+
+  const fileName = fromKey.split("/").filter(Boolean).at(-1)
+  if (!fileName) throw new Error("Clave de origen inválida")
+  const newKey = toPrefix + fileName
+  if (newKey === fromKey) return false
+
+  await client.send(
+    new CopyObjectCommand({
+      Bucket: bucket,
+      CopySource: encodeCopySource(bucket, fromKey),
+      Key: newKey,
+    }),
+  )
+  await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: fromKey }))
+  return true
+}
+
+/**
+ * Moves a file (or a whole folder, copying object by object) to another
+ * folder in the same bucket.
+ */
+export async function moveMediaEntry(
+  mediaId: string,
+  fromKey: string,
+  toPrefix: string,
+) {
+  const { email } = await requireAuth()
+
+  await requireCallerRole(
+    "media",
+    mediaId,
+    email,
+    ["owner", "admin"],
+    "mover archivos",
+  )
+
+  // Server-side copies of big objects/folders can legitimately take minutes,
+  // so the move gets a much longer per-request timeout than reads.
+  const { client, bucket } = await getMediaStorageClient(mediaId, {
+    requestTimeoutMs: 300_000,
+  })
+
+  const trimmedFrom = fromKey.trim()
+  assertValidObjectKey(trimmedFrom, "Clave de origen inválida")
+  const trimmedTo = toPrefix.trim()
+  assertValidObjectPrefix(trimmedTo, "Carpeta de destino inválida")
+
+  await moveEntryWithClient(client, bucket, trimmedFrom, trimmedTo)
+
+  revalidatePath(`/media/${mediaId}`)
+}
+
+export interface MoveBatchResult {
+  moved: string[]
+  /** Entries already at the destination — nothing to do. */
+  skipped: string[]
+  failed: { key: string; message: string }[]
+}
+
+/**
+ * Moves many entries to the same folder in one server action. Next.js runs
+ * concurrent server action requests sequentially (router action queue), so a
+ * client-side loop of moveMediaEntry calls would move one file at a time —
+ * this moves them in a single request instead, with the per-entry copies
+ * running in parallel on the server.
+ */
+export async function moveMediaEntries(
+  mediaId: string,
+  fromKeys: string[],
+  toPrefix: string,
+): Promise<MoveBatchResult> {
+  const { email } = await requireAuth()
+
+  await requireCallerRole(
+    "media",
+    mediaId,
+    email,
+    ["owner", "admin"],
+    "mover archivos",
+  )
+
+  const { client, bucket } = await getMediaStorageClient(mediaId, {
+    requestTimeoutMs: 300_000,
+  })
+
+  const trimmedTo = toPrefix.trim()
+  assertValidObjectPrefix(trimmedTo, "Carpeta de destino inválida")
+
+  const keys = fromKeys.map((key) => {
+    const trimmed = key.trim()
+    assertValidObjectKey(trimmed, "Clave de origen inválida")
+    return trimmed
+  })
+  if (keys.length === 0) throw new Error("No hay elementos para mover")
+
+  const settled = await Promise.allSettled(
+    keys.map(async (key) => ({
+      key,
+      moved: await moveEntryWithClient(client, bucket, key, trimmedTo),
+    })),
+  )
+
+  const result: MoveBatchResult = { moved: [], skipped: [], failed: [] }
+  settled.forEach((outcome, index) => {
+    if (outcome.status === "fulfilled") {
+      ;(outcome.value.moved ? result.moved : result.skipped).push(
+        outcome.value.key,
+      )
+    } else {
+      result.failed.push({
+        key: keys[index],
+        message:
+          outcome.reason instanceof Error
+            ? outcome.reason.message
+            : String(outcome.reason),
+      })
+    }
+  })
+
+  revalidatePath(`/media/${mediaId}`)
+  return result
 }

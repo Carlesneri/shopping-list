@@ -3,12 +3,14 @@
 import {
   IconFile,
   IconFolder,
+  IconLoader2,
   IconMusic,
   IconPhoto,
   IconVideo,
 } from "@tabler/icons-react"
 import type { MediaKind, StorageEntry } from "@/lib/types"
-import { ActionButtons, type ActionKind } from "./ActionButtons"
+import { ActionButtons } from "./ActionButtons"
+import { MoveEntryPanel } from "./MoveEntryPanel"
 
 const MEDIA_TYPE_LABELS: Record<MediaKind, string> = {
   video: "Video",
@@ -53,11 +55,26 @@ function EntryIcon({ entry }: { entry: StorageEntry }) {
 }
 
 interface MediaFileListItemProps {
+  mediaId: string
   entry: StorageEntry
   isSelected: boolean
   onToggleSelect: () => void
-  loadingAction: { key: string; action: ActionKind } | null
+  /** An action (play/download/copy/move/delete) is running on this entry. */
+  loading?: boolean
   isAdmin: boolean
+  /** Placeholder row for a file that is currently being uploaded. */
+  uploading?: boolean
+  /** Whether this item's move panel is open (only one open at a time). */
+  moveOpen?: boolean
+  onMoveToggle?: () => void
+  /** Destination folders for the move panel (root + ancestors + current view). */
+  moveDestinations?: string[]
+  /** A move of this entry is in flight. */
+  moving?: boolean
+  onMoveSelect?: (toPrefix: string, stagedFolders: string[]) => void
+  /** Checked for batch move; checkbox only rendered when onCheckedChange is given. */
+  checked?: boolean
+  onCheckedChange?: () => void
   onPlay: () => void
   onDownload: () => void
   onCopyUrl: () => void
@@ -66,11 +83,20 @@ interface MediaFileListItemProps {
 }
 
 export function MediaFileListItem({
+  mediaId,
   entry,
   isSelected,
   onToggleSelect,
-  loadingAction,
+  loading = false,
   isAdmin,
+  uploading = false,
+  moveOpen = false,
+  onMoveToggle,
+  moveDestinations = [],
+  moving = false,
+  onMoveSelect,
+  checked = false,
+  onCheckedChange,
   onPlay,
   onDownload,
   onCopyUrl,
@@ -78,13 +104,33 @@ export function MediaFileListItem({
   onFolderClick,
 }: MediaFileListItemProps) {
   const isFile = entry.type === "file"
+  const busy = uploading || moving
 
   return (
-    <li className="rounded-md border border-black/10 bg-white text-sm">
+    <li
+      className={`rounded-md border border-black/10 bg-white text-sm ${
+        busy ? "pointer-events-none opacity-60" : ""
+      }`}
+      aria-disabled={busy || undefined}
+    >
       <div className="flex flex-col gap-1 px-3 py-2">
         <div className="flex min-w-0 items-center gap-2">
+          {onCheckedChange ? (
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={onCheckedChange}
+              disabled={busy}
+              className="shrink-0 accent-blue-600"
+              aria-label={`Seleccionar ${entry.name} para mover`}
+            />
+          ) : null}
           <EntryIcon entry={entry} />
-          {isFile ? (
+          {uploading ? (
+            <span className="min-w-0 flex-1 truncate text-base font-medium text-start">
+              {entry.name}
+            </span>
+          ) : isFile ? (
             <button
               type="button"
               onClick={onToggleSelect}
@@ -116,18 +162,25 @@ export function MediaFileListItem({
               ) : null}
             </div>
           ) : null}
-          <ActionButtons
-            entryKey={entry.key}
-            entryName={entry.name}
-            mediaKind={entry.mediaKind}
-            isFile={isFile}
-            isAdmin={isAdmin}
-            loading={loadingAction}
-            onPlay={onPlay}
-            onDownload={onDownload}
-            onCopyUrl={onCopyUrl}
-            onDelete={onDelete}
-          />
+          {uploading ? (
+            <span className="ml-auto flex shrink-0 items-center gap-1.5 text-xs text-text/50">
+              <IconLoader2 size={16} className="animate-spin" />
+              Subiendo…
+            </span>
+          ) : (
+            <ActionButtons
+              entryName={entry.name}
+              mediaKind={entry.mediaKind}
+              isFile={isFile}
+              isAdmin={isAdmin}
+              loading={loading}
+              onPlay={onPlay}
+              onMoveToggle={() => onMoveToggle?.()}
+              onDownload={onDownload}
+              onCopyUrl={onCopyUrl}
+              onDelete={onDelete}
+            />
+          )}
         </div>
       </div>
       {isFile && isSelected ? (
@@ -161,6 +214,17 @@ export function MediaFileListItem({
             </div>
           </dl>
         </div>
+      ) : null}
+      {isAdmin && moveOpen ? (
+        <MoveEntryPanel
+          mediaId={mediaId}
+          entries={[entry]}
+          folderOptions={moveDestinations}
+          moving={moving}
+          onMoveSelect={(toPrefix, stagedFolders) =>
+            onMoveSelect?.(toPrefix, stagedFolders)
+          }
+        />
       ) : null}
     </li>
   )

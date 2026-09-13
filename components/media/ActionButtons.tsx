@@ -2,49 +2,41 @@
 
 import {
   IconDownload,
+  IconFolderUp,
   IconHeadphones,
   IconLink,
-  IconLoader2,
   IconMaximize,
   IconPlayerPlay,
   IconTrash,
 } from "@tabler/icons-react"
 import type { MediaKind } from "@/lib/types"
 
-export type ActionKind = "play" | "download" | "copy" | "delete"
-
-interface ActionLoading {
-  key: string
-  action: ActionKind
-}
-
 interface Props {
-  entryKey: string
   entryName: string
   mediaKind?: MediaKind
   isFile: boolean
   isAdmin: boolean
-  loading: ActionLoading | null
+  loading?: boolean
   onPlay: () => void
+  onMoveToggle: () => void
   onDownload: () => void
   onCopyUrl: () => void
   onDelete: () => void
 }
 
 export function ActionButtons({
-  entryKey,
   entryName,
   mediaKind,
   isFile,
   isAdmin,
-  loading,
+  loading = false,
   onPlay,
+  onMoveToggle,
   onDownload,
   onCopyUrl,
   onDelete,
 }: Props) {
-  const loadingKind = loading?.key === entryKey ? loading.action : null
-  const isBusy = loadingKind !== null
+  const isBusy = loading
   const btn =
     "shrink-0 cursor-pointer rounded-md p-1.5 transition-colors disabled:cursor-wait text-primary hover:text-primary-dark disabled:text-primary/40"
 
@@ -69,9 +61,7 @@ export function ActionButtons({
               : `Reproducir ${entryName}`
           }
         >
-          {loadingKind === "play" ? (
-            <IconLoader2 size={20} className="animate-spin" />
-          ) : mediaKind === "image" ? (
+          {mediaKind === "image" ? (
             <IconMaximize size={20} color="currentColor" />
           ) : mediaKind === "audio" ? (
             <IconHeadphones size={20} color="currentColor" />
@@ -90,11 +80,7 @@ export function ActionButtons({
           title="Descargar archivo al dispositivo"
           aria-label={`Descargar ${entryName}`}
         >
-          {loadingKind === "download" ? (
-            <IconLoader2 size={20} className="animate-spin" />
-          ) : (
-            <IconDownload size={20} color="currentColor" />
-          )}
+          <IconDownload size={20} color="currentColor" />
         </button>
       ) : null}
       {isFile ? (
@@ -106,11 +92,19 @@ export function ActionButtons({
           title="Copiar URL de descarga al portapapeles"
           aria-label={`Copiar URL de ${entryName}`}
         >
-          {loadingKind === "copy" ? (
-            <IconLoader2 size={20} className="animate-spin" />
-          ) : (
-            <IconLink size={20} />
-          )}
+          <IconLink size={20} />
+        </button>
+      ) : null}
+      {isAdmin ? (
+        <button
+          type="button"
+          onClick={onMoveToggle}
+          disabled={isBusy}
+          className={btn}
+          title="Mover a otra carpeta"
+          aria-label={`Mover ${entryName}`}
+        >
+          <IconFolderUp size={20} />
         </button>
       ) : null}
       {isFile && isAdmin ? (
@@ -122,11 +116,7 @@ export function ActionButtons({
           title="Eliminar archivo del storage"
           aria-label={`Eliminar ${entryName}`}
         >
-          {loadingKind === "delete" ? (
-            <IconLoader2 size={20} className="animate-spin" />
-          ) : (
-            <IconTrash size={20} />
-          )}
+          <IconTrash size={20} />
         </button>
       ) : null}
       {!isFile && isAdmin ? (
@@ -138,11 +128,7 @@ export function ActionButtons({
           title="Eliminar carpeta y todo su contenido"
           aria-label={`Eliminar ${entryName}`}
         >
-          {loadingKind === "delete" ? (
-            <IconLoader2 size={20} className="animate-spin" />
-          ) : (
-            <IconTrash size={20} />
-          )}
+          <IconTrash size={20} />
         </button>
       ) : null}
     </div>

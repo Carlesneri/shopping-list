@@ -6,14 +6,18 @@ import { toast } from "sonner"
 import { IconChevronRight, IconSearch } from "@tabler/icons-react"
 import type { StorageEntry } from "@/lib/types"
 import {
-  getMediaEntryUrl,
-  listMediaStorageEntries,
+  createMediaFolder,
   deleteMediaEntry,
   deleteMediaFolder,
+  getMediaEntryUrl,
+  listMediaStorageEntries,
+  moveMediaEntries,
+  moveMediaEntry,
 } from "@/lib/actions/media"
 import { MediaFileListItem } from "./MediaFileListItem"
+import { MoveEntryPanel } from "./MoveEntryPanel"
 import { useMediaPlayer } from "./MediaPlayerProvider"
-import type { ActionKind } from "./ActionButtons"
+import { Loader } from "@/components/ui/Loader"
 
 function parseBreadcrumbs(path: string) {
   if (!path) return []
@@ -34,6 +38,7 @@ export function MediaFileList({
   initialError,
   currentPath,
   onPathChange,
+  uploadingEntries = [],
 }: {
   mediaId: string
   entries: StorageEntry[]
@@ -42,12 +47,15 @@ export function MediaFileList({
   /** Folder currently being browsed (e.g. "videos/"); "" for the root. */
   currentPath: string
   onPathChange: (path: string) => void
+  /** Placeholder rows for files currently being uploaded. */
+  uploadingEntries?: StorageEntry[]
 }) {
   const router = useRouter()
   const { openPlayer } = useMediaPlayer()
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const [moveKey, setMoveKey] = useState<string | null>(null)
   const [loadingActions, setLoadingActions] = useState<
-    Record<string, ActionKind>
+    Record<string, boolean>
   >({})
   const hasNotified = useRef(false)
   const [entries, setEntries] = useState(initialEntries)
@@ -62,15 +70,20 @@ export function MediaFileList({
     }
   }, [initialError])
 
-  // The server always sends the root listing in `initialEntries`. Whenever it
-  // changes (after router.refresh() — uploads, folder creation, …) or the user
-  // navigates, reload: root uses the fresh snapshot directly; any other folder
-  // is re-fetched so the user stays inside it.
+  // One source of truth per situation:
+  // - Root: mirror the server snapshot. Server actions revalidate the page,
+  //   so their responses deliver fresh data — swap it in, no request needed.
+  // - Folder: always fetch when the folder changes, and show the loader
+  //   until it arrives. The reset is unconditional so nothing can get stuck.
   useEffect(() => {
     if (!currentPath) {
+      setLoadingEntries(false)
       setEntries(initialEntries)
-      return
     }
+  }, [currentPath, initialEntries])
+
+  useEffect(() => {
+    if (!currentPath) return
     let cancelled = false
     setLoadingEntries(true)
     listMediaStorageEntries(mediaId, currentPath)
@@ -87,21 +100,34 @@ export function MediaFileList({
           )
       })
       .finally(() => {
-        if (!cancelled) setLoadingEntries(false)
+        setLoadingEntries(false)
       })
     return () => {
       cancelled = true
     }
-  }, [mediaId, currentPath, initialEntries])
+  }, [mediaId, currentPath])
 
   function navigateToFolder(path: string) {
     setSelectedKey(null)
+    // A move panel for another folder is meaningless after navigating.
+    setMoveKey(null)
+    // Selections belong to the listing being left behind.
+    setCheckedKeys(new Set())
+    setBatchMoveOpen(false)
     onPathChange(path)
   }
 
   const filteredEntries = search
     ? entries.filter((e) => e.name.toLowerCase().includes(search.toLowerCase()))
     : entries
+
+  // Destinations for the move panel, derived from data already in memory:
+  // root, breadcrumb ancestors, and the folders in the current listing.
+  const moveDestinations = [
+    "",
+    ...parseBreadcrumbs(currentPath).map((b) => b.path),
+    ...entries.filter((e) => e.type === "folder").map((e) => e.key),
+  ].filter((path, index, all) => all.indexOf(path) === index)
 
   const checkForNewItems = useCallback(async () => {
     if (hasNotified.current) return
@@ -134,10 +160,10 @@ export function MediaFileList({
 
   async function runEntryAction(
     entry: StorageEntry,
-    action: ActionKind,
+    action: string,
     run: () => Promise<void>,
   ) {
-    setLoadingActions((prev) => ({ ...prev, [entry.key]: action }))
+    setLoadingActions((prev) => ({ ...prev, [entry.key]: true }))
     try {
       await run()
     } catch (error) {
@@ -178,6 +204,11 @@ export function MediaFileList({
         await deleteMediaEntry(mediaId, entry.key)
       }
       setEntries((prev) => prev.filter((e) => e.key !== entry.key))
+      setCheckedKeys((prev) => {
+        const next = new Set(prev)
+        next.delete(entry.key)
+        return next
+      })
       toast.success(
         entry.type === "folder" ? "Carpeta eliminada" : "Archivo eliminado",
       )
@@ -200,6 +231,165 @@ export function MediaFileList({
         storageKey: `${mediaId}:${entry.key}`,
       })
     })
+  }
+
+  // The move lives here — the list never unmounts, so navigation while a
+  // move runs can't interrupt it or leave dangling callbacks behind.
+  // Moves of different entries run in parallel; each key is only locked
+  // against itself.
+  const [movingKeys, setMovingKeys] = useState<Set<string>>(() => new Set())
+
+  // Batch selection: keys checked for a multi-item move.
+  const [checkedKeys, setCheckedKeys] = useState<Set<string>>(() => new Set())
+  const [batchMoveOpen, setBatchMoveOpen] = useState(false)
+  const [batchMoving, setBatchMoving] = useState(false)
+
+  function toggleChecked(key: string) {
+    setCheckedKeys((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        next.add(key)
+      }
+      return next
+    })
+  }
+
+  function moveErrorMessage(error: unknown) {
+    const message =
+      error instanceof Error ? error.message : "No se pudo mover el elemento"
+    if (/NoSuchKey/i.test(message))
+      return "El elemento ya no está en su ubicación original. Actualiza la lista."
+    if (/TimeoutError|timed out|exceeded.*timeout/i.test(message))
+      return "La operación tardó demasiado. Inténtalo de nuevo en unos momentos."
+    return message
+  }
+
+  // Materialize locally-staged folders along the destination chain, shortest
+  // path first so parents exist before children.
+  async function createStagedFolders(
+    toPrefix: string,
+    stagedFolders: string[],
+  ) {
+    const toCreate = stagedFolders
+      .filter((p) => toPrefix === p || toPrefix.startsWith(p))
+      .sort((a, b) => a.length - b.length)
+    for (const folder of toCreate) {
+      const withoutSlash = folder.replace(/\/+$/, "")
+      const segments = withoutSlash.split("/")
+      const name = segments.at(-1) ?? ""
+      if (!name) continue
+      const parent = withoutSlash.slice(0, withoutSlash.length - name.length)
+      await createMediaFolder(mediaId, parent, name)
+    }
+  }
+
+  // Entries currently checked that are still in the listing.
+  const checkedEntries = entries.filter((e) => checkedKeys.has(e.key))
+
+  async function handleMoveBatch(
+    toPrefix: string,
+    stagedFolders: string[],
+  ) {
+    if (batchMoving || checkedEntries.length === 0) return
+    setBatchMoving(true)
+    // Keep rows busy while their move is in flight.
+    setMovingKeys((prev) => {
+      const next = new Set(prev)
+      for (const entry of checkedEntries) next.add(entry.key)
+      return next
+    })
+    try {
+      await createStagedFolders(toPrefix, stagedFolders)
+
+      // One server action for the whole batch: Next.js runs concurrent
+      // server action requests sequentially (router action queue), so
+      // per-entry calls would move one file at a time.
+      const result = await moveMediaEntries(
+        mediaId,
+        checkedEntries.map((e) => e.key),
+        toPrefix,
+      )
+
+      const doneKeys = [...result.moved, ...result.skipped]
+      if (result.moved.length > 0) {
+        setEntries((prev) =>
+          prev.filter((e) => !result.moved.includes(e.key)),
+        )
+        toast.success(
+          result.moved.length === 1
+            ? "Elemento movido"
+            : `${result.moved.length} elementos movidos`,
+        )
+      }
+      if (result.skipped.length > 0) {
+        console.warn(
+          "[media:move-batch] already at destination", result.skipped,
+        )
+      }
+      if (result.failed.length > 0) {
+        console.error("[media:move-batch] failed entries", result.failed)
+        toast.error(
+          result.failed.length === 1
+            ? moveErrorMessage(new Error(result.failed[0].message))
+            : `No se pudieron mover ${result.failed.length} elementos`,
+        )
+      }
+      if (doneKeys.length > 0) {
+        setCheckedKeys((prev) => {
+          const next = new Set(prev)
+          for (const key of doneKeys) next.delete(key)
+          return next
+        })
+      }
+      if (result.failed.length === 0) setBatchMoveOpen(false)
+    } catch (error) {
+      console.error("[media:move-batch] failed", error)
+      toast.error(moveErrorMessage(error))
+    } finally {
+      setBatchMoving(false)
+      setMovingKeys((prev) => {
+        const next = new Set(prev)
+        for (const entry of checkedEntries) next.delete(entry.key)
+        return next
+      })
+    }
+  }
+
+  async function handleMove(
+    entry: StorageEntry,
+    toPrefix: string,
+    stagedFolders: string[],
+  ) {
+    if (movingKeys.has(entry.key)) return
+    setMovingKeys((prev) => new Set(prev).add(entry.key))
+    try {
+      await createStagedFolders(toPrefix, stagedFolders)
+
+      await moveMediaEntry(mediaId, entry.key, toPrefix)
+      toast.success("Elemento movido")
+      setEntries((prev) => prev.filter((e) => e.key !== entry.key))
+      setMoveKey(null)
+      setCheckedKeys((prev) => {
+        const next = new Set(prev)
+        next.delete(entry.key)
+        return next
+      })
+      // No router.refresh() here: moveMediaEntry already calls
+      // revalidatePath, so the action response carries the fresh server
+      // snapshot (same as the delete handlers above). A refresh inside a
+      // transition after a server action could hang the UI (vercel/next.js#86055).
+    } catch (error) {
+      console.error("[media:move] failed", error)
+      toast.error(moveErrorMessage(error))
+    } finally {
+      setMovingKeys((prev) => {
+        const next = new Set(prev)
+        next.delete(entry.key)
+        return next
+      })
+    }
   }
 
   return (
@@ -246,36 +436,100 @@ export function MediaFileList({
           className="w-full rounded-md border border-black/10 bg-white py-1.5 pl-9 pr-3 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
         />
       </div>
-      {loadingEntries ? (
-        <p className="text-sm text-text/50 py-2">Cargando…</p>
+      {isAdmin && checkedEntries.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-black/10 bg-white px-3 py-2 text-sm">
+          <span className="font-medium text-text/70">
+            {checkedEntries.length} seleccionado
+            {checkedEntries.length === 1 ? "" : "s"}
+          </span>
+          <button
+            type="button"
+            onClick={() => setBatchMoveOpen((v) => !v)}
+            disabled={batchMoving}
+            className="cursor-pointer rounded-md bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-wait disabled:opacity-50"
+          >
+            {batchMoveOpen ? "Cerrar" : "Mover…"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setCheckedKeys(new Set())
+              setBatchMoveOpen(false)
+            }}
+            disabled={batchMoving}
+            className="cursor-pointer text-xs font-medium text-text/50 hover:text-text disabled:cursor-wait disabled:opacity-50"
+          >
+            Quitar selección
+          </button>
+        </div>
+      ) : null}
+      {isAdmin && batchMoveOpen && checkedEntries.length > 0 ? (
+        <MoveEntryPanel
+          mediaId={mediaId}
+          entries={checkedEntries}
+          folderOptions={moveDestinations}
+          moving={batchMoving}
+          onMoveSelect={handleMoveBatch}
+        />
       ) : null}
       <ul className="flex flex-col gap-2">
-        {filteredEntries.map((entry) => (
+        {uploadingEntries.map((entry) => (
           <MediaFileListItem
             key={entry.key}
+            mediaId={mediaId}
             entry={entry}
-            isSelected={entry.key === selectedKey}
-            onToggleSelect={() =>
-              setSelectedKey(entry.key === selectedKey ? null : entry.key)
-            }
-            loadingAction={
-              loadingActions[entry.key]
-                ? { key: entry.key, action: loadingActions[entry.key] }
-                : null
-            }
-            isAdmin={isAdmin}
-            onPlay={() => handleOpen(entry)}
-            onDownload={() => handleDownloadFile(entry)}
-            onCopyUrl={() => handleCopyUrl(entry)}
-            onDelete={() => handleDeleteEntry(entry)}
-            onFolderClick={
-              entry.type === "folder"
-                ? () => navigateToFolder(entry.key)
-                : undefined
-            }
+            isSelected={false}
+            onToggleSelect={() => {}}
+            isAdmin={false}
+            uploading
+            onPlay={() => {}}
+            onDownload={() => {}}
+            onCopyUrl={() => {}}
+            onDelete={() => {}}
           />
         ))}
       </ul>
+      {loadingEntries ? (
+        <Loader size={48} label="Cargando…" className="py-6" />
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {filteredEntries.map((entry) => (
+            <MediaFileListItem
+              key={entry.key}
+              mediaId={mediaId}
+              entry={entry}
+              isSelected={entry.key === selectedKey}
+              onToggleSelect={() =>
+                setSelectedKey(entry.key === selectedKey ? null : entry.key)
+              }
+              loading={Boolean(loadingActions[entry.key])}
+              isAdmin={isAdmin}
+              moveOpen={moveKey === entry.key}
+              onMoveToggle={() =>
+                setMoveKey(moveKey === entry.key ? null : entry.key)
+              }
+              moveDestinations={moveDestinations}
+              moving={movingKeys.has(entry.key)}
+              onMoveSelect={(toPrefix, stagedFolders) =>
+                handleMove(entry, toPrefix, stagedFolders)
+              }
+              checked={isAdmin && checkedKeys.has(entry.key)}
+              onCheckedChange={
+                isAdmin ? () => toggleChecked(entry.key) : undefined
+              }
+              onPlay={() => handleOpen(entry)}
+              onDownload={() => handleDownloadFile(entry)}
+              onCopyUrl={() => handleCopyUrl(entry)}
+              onDelete={() => handleDeleteEntry(entry)}
+              onFolderClick={
+                entry.type === "folder"
+                  ? () => navigateToFolder(entry.key)
+                  : undefined
+              }
+            />
+          ))}
+        </ul>
+      )}
       {search && filteredEntries.length === 0 && !loadingEntries ? (
         <p className="text-sm text-text/50 py-2 text-center">
           Ningún elemento coincide con la búsqueda
