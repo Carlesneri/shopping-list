@@ -72,9 +72,6 @@ interface MediaFileListItemProps {
   /** A move of this entry is in flight. */
   moving?: boolean
   onMoveSelect?: (toPrefix: string, stagedFolders: string[]) => void
-  /** Checked for batch move; checkbox only rendered when onCheckedChange is given. */
-  checked?: boolean
-  onCheckedChange?: () => void
   onPlay: () => void
   onDownload: () => void
   onCopyUrl: () => void
@@ -95,8 +92,6 @@ export function MediaFileListItem({
   moveDestinations = [],
   moving = false,
   onMoveSelect,
-  checked = false,
-  onCheckedChange,
   onPlay,
   onDownload,
   onCopyUrl,
@@ -115,16 +110,6 @@ export function MediaFileListItem({
     >
       <div className="flex flex-col gap-1 px-3 py-2">
         <div className="flex min-w-0 items-center gap-2">
-          {onCheckedChange ? (
-            <input
-              type="checkbox"
-              checked={checked}
-              onChange={onCheckedChange}
-              disabled={busy}
-              className="shrink-0 accent-blue-600"
-              aria-label={`Seleccionar ${entry.name} para mover`}
-            />
-          ) : null}
           <EntryIcon entry={entry} />
           {uploading ? (
             <span className="min-w-0 flex-1 truncate text-base font-medium text-start">
