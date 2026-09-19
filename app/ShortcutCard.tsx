@@ -64,22 +64,24 @@ export function ShortcutCard({
   return (
     <Link
       href={href}
-      className={`relative group aspect-square w-full max-w-xs flex flex-col items-center justify-center gap-3 p-5 rounded-2xl border-2 border-black/10 ${colors.border} bg-white shadow-[0_4px_0_0_#0002] transition-all duration-200 hover:shadow-[0_3px_0_0_#0002] hover:border-opacity-100 hover:translate-y-px active:translate-y-1 active:shadow-[0_2px_0_0_#0002]`}
+      className={`relative group aspect-square w-full max-w-xs flex flex-col p-4 rounded-3xl squircle border-2 border-black/10 ${colors.border} bg-white shadow-[0_4px_0_0_#0002] transition-all duration-200 hover:shadow-[0_3px_0_0_#0002] hover:border-opacity-100 hover:translate-y-px active:translate-y-1 active:shadow-[0_2px_0_0_#0002]`}
     >
-      <button
-        type="button"
-        onClick={handleRemove}
-        className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/80 backdrop-blur-sm text-text/40 hover:text-danger hover:bg-danger/10 flex items-center justify-center transition-colors"
-        aria-label="Eliminar acceso directo"
-      >
-        <IconX size={15} strokeWidth={2.5} />
-      </button>
-      <div className="w-16 h-16 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105">
-        <Icon size={32} className={`${colors.icon}`} strokeWidth={2.5} />
+      <div className="flex items-center justify-between">
+        <Icon size={24} className={colors.icon} strokeWidth={2.5} />
+        <button
+          type="button"
+          onClick={handleRemove}
+          className="w-7 h-7 rounded-full text-text/30 hover:text-danger hover:bg-danger/10 flex items-center justify-center transition-colors"
+          aria-label="Eliminar acceso directo"
+        >
+          <IconX size={16} strokeWidth={2.5} />
+        </button>
       </div>
-      <span className="font-semibold text-base text-center leading-tight text-text line-clamp-2 px-2">
-        {title}
-      </span>
+      <div className="flex-1 flex items-center justify-center">
+        <span className="font-bold text-base text-center leading-tight text-text line-clamp-3">
+          {title}
+        </span>
+      </div>
     </Link>
   )
 }

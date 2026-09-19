@@ -115,7 +115,7 @@ export function MediaFileListItem({
 
   return (
     <li
-      className={`rounded-md border border-black/10 bg-white text-sm ${
+      className={`rounded-xl squircle border border-black/10 bg-white text-sm ${
         busy ? "pointer-events-none opacity-60" : ""
       }`}
       aria-disabled={busy || undefined}

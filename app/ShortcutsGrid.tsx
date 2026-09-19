@@ -96,6 +96,10 @@ export function ShortcutsGrid({ shortcuts }: { shortcuts: Shortcut[] }) {
       }}
     >
       <DndContext
+        // Stable id: dnd-kit's aria-describedby ids come from a module-level
+        // counter, which mismatches between SSR and hydration (DndDescribedBy-1
+        // vs -2). An explicit id bypasses the counter on both sides.
+        id="shortcuts-grid"
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragEnd={handleDragEnd}

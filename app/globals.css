@@ -71,6 +71,12 @@ body {
     ufo-colors 3s ease infinite;
 }
 
+/* iOS-style squircle corners. Browsers without corner-shape support keep the
+   regular border-radius fallback. */
+@utility squircle {
+  corner-shape: squircle;
+}
+
 /* Tiptap editor content */
 .richtext-content {
   word-break: break-word;

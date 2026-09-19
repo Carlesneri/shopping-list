@@ -74,7 +74,7 @@ export function SectionLanding({
             return (
               <article
                 key={feature.title}
-                className="rounded-2xl border-2 border-black/10 bg-white p-6 text-center shadow-[0_4px_0_0_rgba(0,0,0,0.06)]"
+                className="rounded-2xl squircle border-2 border-black/10 bg-white p-6 text-center shadow-[0_4px_0_0_rgba(0,0,0,0.06)]"
               >
                 <div
                   className={`w-12 h-12 mx-auto mb-4 rounded-xl flex items-center justify-center ${iconStyles[config.accent]}`}
@@ -97,7 +97,7 @@ export function SectionLanding({
           {config.steps.map((step, index) => (
             <li
               key={step.title}
-              className="rounded-2xl bg-black/[0.03] p-6 text-center"
+              className="rounded-2xl squircle bg-black/[0.03] p-6 text-center"
             >
               <span
                 className={`inline-flex w-8 h-8 items-center justify-center rounded-full font-bold mb-3 ${stepStyles[config.accent]}`}

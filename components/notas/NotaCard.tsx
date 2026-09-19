@@ -10,7 +10,7 @@ export function NotaCard({ nota }: { nota: Nota }) {
 
   return (
     <Link href={`/notas/${nota.id}`}>
-      <div className="relative flex flex-col gap-1 p-4 bg-white rounded-md border-2 border-orange shadow-[0_4px_0_0_#c45c0a] hover:translate-y-px hover:shadow-[0_3px_0_0_#c45c0a] active:translate-y-1 active:shadow-none transition-transform">
+      <div className="relative flex flex-col gap-1 p-4 bg-white rounded-2xl squircle border-2 border-orange shadow-[0_4px_0_0_#c45c0a] hover:translate-y-px hover:shadow-[0_3px_0_0_#c45c0a] active:translate-y-1 active:shadow-none transition-transform">
         <div className="absolute top-3 right-3">
           <ShareButton path={`/notas/${nota.id}`} variant="plain" />
         </div>
