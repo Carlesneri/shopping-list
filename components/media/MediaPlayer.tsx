@@ -311,7 +311,7 @@ export function MediaPlayer({ src, title, kind, storageKey, onClose }: Props) {
         ) : (
           <div
             ref={videoContainerRef}
-            className="relative aspect-video w-full bg-black"
+            className="relative aspect-video max-h-[calc(100svh-5.5rem)] w-full bg-black [&:fullscreen]:aspect-auto [&:fullscreen]:h-full"
           >
             <movi-player
               ref={playerRef}
