@@ -69,6 +69,33 @@ export async function removeShortcut(type: ShortcutType, targetId: string) {
   revalidatePath("/")
 }
 
+/** Persist a new order of the user's shortcuts (from drag and drop). */
+export async function reorderShortcuts(orderedIds: string[]) {
+  const { email } = await requireAuth()
+
+  const db = getDB()
+  const ref = getShortcutRef(email)
+
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists) return
+    const shortcuts = (snap.data()!.shortcuts as Shortcut[]) ?? []
+
+    // Only reorder ids the user actually has; anything not mentioned keeps
+    // its relative position at the end (guards against stale clients).
+    const byId = new Map(shortcuts.map((s) => [s.id, s]))
+    const reordered = [
+      ...orderedIds.flatMap((id) => byId.get(id) ?? []),
+      ...shortcuts.filter((s) => !orderedIds.includes(s.id)),
+    ]
+    if (reordered.every((s, i) => s.id === shortcuts[i].id)) return
+
+    tx.update(ref, { shortcuts: reordered })
+  })
+
+  revalidatePath("/")
+}
+
 export async function getShortcuts(): Promise<Shortcut[]> {
   const { email } = await requireAuth()
 

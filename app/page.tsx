@@ -2,7 +2,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { auth } from "@/auth"
 import { getShortcuts } from "@/lib/actions/shortcuts"
-import { ShortcutCard } from "./ShortcutCard"
+import { ShortcutsGrid } from "./ShortcutsGrid"
 import { HomeLanding } from "@/components/landing/HomeLanding"
 import { IconShoppingCart, IconFileText, IconCloud } from "@tabler/icons-react"
 
@@ -99,27 +99,7 @@ export default async function HomePage() {
             <h3 className="text-sm font-semibold text-text/60 mb-3 text-left uppercase tracking-wide">
               Accesos directos
             </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {shortcuts.map((shortcut) => {
-                let href = ""
-                if (shortcut.type === "list")
-                  href = `/compras/${shortcut.targetId}`
-                else if (shortcut.type === "nota")
-                  href = `/notas/${shortcut.targetId}`
-                else if (shortcut.type === "storage")
-                  href = `/media/${shortcut.targetId}`
-                return (
-                  <ShortcutCard
-                    key={shortcut.id}
-                    title={shortcut.title}
-                    iconName={shortcut.icon}
-                    href={href}
-                    shortcutId={shortcut.id}
-                    type={shortcut.type}
-                  />
-                )
-              })}
-            </div>
+            <ShortcutsGrid shortcuts={shortcuts} />
           </div>
         )}
       </div>
