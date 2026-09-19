@@ -96,7 +96,7 @@ AUTH_GOOGLE_SECRET=
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-  Copy to `.env.local` and fill in values.
+Copy to `.env.local` and fill in values.
 
 - [ ] **Step 4: Verify app starts**
 
@@ -169,6 +169,7 @@ Expected: build succeeds (may have type errors until Task 4 — check for instal
 ## Task 3: TypeScript types + utils
 
 **Files:**
+
 - Create: `lib/types.ts`
 - Create: `lib/utils.ts`
 - Test: `lib/__tests__/utils.test.ts`
@@ -252,6 +253,7 @@ git commit -m "feat: add shared types, utils, and test setup"
 ## Task 4: Design tokens, fonts, favicon
 
 **Files:**
+
 - Modify: `app/globals.css`
 - Modify: `app/layout.tsx`
 - Create: `app/icon.png` (copy from `public/logo.png`)
@@ -309,9 +311,16 @@ export const metadata: Metadata = {
   description: "Tu app colaborativa",
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   return (
-    <html lang="es" className={`${nunito.variable} ${jetbrainsMono.variable} h-full`}>
+    <html
+      lang="es"
+      className={`${nunito.variable} ${jetbrainsMono.variable} h-full`}
+    >
       <body className="min-h-full flex flex-col font-sans antialiased">
         {children}
       </body>
@@ -340,6 +349,7 @@ git commit -m "feat: apply Lingo design tokens and Nunito/JetBrains Mono fonts"
 ## Task 5: next-auth configuration
 
 **Files:**
+
 - Create: `auth.ts`
 - Create: `app/api/auth/[...nextauth]/route.ts`
 
@@ -394,6 +404,7 @@ git commit -m "feat: configure next-auth with Google provider"
 ## Task 6: Firebase Admin SDK + token action
 
 **Files:**
+
 - Create: `lib/firebase-admin.ts`
 - Create: `lib/actions/auth.ts`
 - Test: `lib/__tests__/actions-auth.test.ts`
@@ -480,7 +491,10 @@ export async function getFirebaseToken(): Promise<string | null> {
   const session = await auth()
   if (!session?.user?.email) return null
 
-  const uid = crypto.createHash("sha256").update(session.user.email).digest("hex")
+  const uid = crypto
+    .createHash("sha256")
+    .update(session.user.email)
+    .digest("hex")
   const token = await getAuth(getAdminApp()).createCustomToken(uid, {
     email: session.user.email,
   })
@@ -508,6 +522,7 @@ git commit -m "feat: add Firebase Admin SDK and getFirebaseToken server action"
 ## Task 7: Firebase client SDK + auth bridge
 
 **Files:**
+
 - Create: `lib/firebase-client.ts`
 - Create: `components/providers/FirebaseAuthProvider.tsx`
 
@@ -546,7 +561,11 @@ import { signInWithCustomToken } from "firebase/auth"
 import { clientAuth } from "@/lib/firebase-client"
 import { getFirebaseToken } from "@/lib/actions/auth"
 
-export function FirebaseAuthProvider({ children }: { children: React.ReactNode }) {
+export function FirebaseAuthProvider({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   const { data: session, status } = useSession()
 
   useEffect(() => {
@@ -574,6 +593,7 @@ git commit -m "feat: add Firebase client SDK and auth bridge provider"
 ## Task 8: Root layout shell
 
 **Files:**
+
 - Create: `components/layout/TopBar.tsx`
 - Create: `components/layout/Footer.tsx`
 - Create: `components/ui/Button.tsx`
@@ -666,7 +686,12 @@ const variants: Record<Variant, string> = {
     "bg-danger text-white font-bold rounded-md px-4 py-2 shadow-[0_4px_0_0_#b03030] hover:translate-y-px hover:shadow-[0_3px_0_0_#b03030] active:translate-y-1 active:shadow-none transition-transform",
 }
 
-export function Button({ variant = "primary", className, children, ...props }: ButtonProps) {
+export function Button({
+  variant = "primary",
+  className,
+  children,
+  ...props
+}: ButtonProps) {
   return (
     <button className={cn(variants[variant], className)} {...props}>
       {children}
@@ -703,9 +728,16 @@ export const metadata: Metadata = {
   description: "Tu app colaborativa",
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   return (
-    <html lang="es" className={`${nunito.variable} ${jetbrainsMono.variable} h-full`}>
+    <html
+      lang="es"
+      className={`${nunito.variable} ${jetbrainsMono.variable} h-full`}
+    >
       <body className="min-h-full flex flex-col font-sans antialiased">
         <SessionProvider>
           <FirebaseAuthProvider>
@@ -741,6 +773,7 @@ git commit -m "feat: add TopBar, Footer, Button, and root layout shell"
 ## Task 9: Home page — unauthenticated state
 
 **Files:**
+
 - Modify: `app/page.tsx`
 
 - [ ] **Step 1: Replace `app/page.tsx`**
@@ -755,7 +788,7 @@ export default async function HomePage() {
 
   if (!session) {
     return (
-      <div className="flex flex-col items-center justify-center gap-8 px-4 py-16 text-center">
+      <div className="flex flex-col items-center justify-center gap-8 px-4 pt-8 pb-16 text-center">
         <Image
           src="/compale.png"
           alt="COMPALE — lista de la compra colaborativa"
@@ -803,6 +836,7 @@ git commit -m "feat: add unauthenticated home page with Google sign-in"
 ## Task 10: Home page — authenticated state
 
 **Files:**
+
 - Create: `components/lists/ListCard.tsx`
 - Create: `components/lists/ListGrid.tsx`
 - Modify: `app/page.tsx`
@@ -825,7 +859,10 @@ export function ListCard({ list }: { list: ShoppingList }) {
         </div>
         <div className="flex items-center gap-1 text-text/60 text-sm mt-1">
           <IconUsers size={14} />
-          <span>{list.allowedUsers.length} {list.allowedUsers.length === 1 ? "persona" : "personas"}</span>
+          <span>
+            {list.allowedUsers.length}{" "}
+            {list.allowedUsers.length === 1 ? "persona" : "personas"}
+          </span>
         </div>
       </div>
     </Link>
@@ -862,7 +899,12 @@ export function ListGrid({ userEmail }: { userEmail: string }) {
       firestoreUnsub = onSnapshot(
         q,
         (snap) => {
-          setLists(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as ShoppingList[])
+          setLists(
+            snap.docs.map((doc) => ({
+              id: doc.id,
+              ...doc.data(),
+            })) as ShoppingList[],
+          )
         },
         () => toast.error("Error al cargar las listas"),
       )
@@ -902,16 +944,16 @@ import { IconPlus } from "@tabler/icons-react"
 import { ListGrid } from "@/components/lists/ListGrid"
 
 // Inside the authenticated branch:
-  return (
-    <div className="px-4 py-6 max-w-lg mx-auto w-full">
-      <ListGrid userEmail={session.user.email!} />
-      <Link href="/lists/new" className="fixed bottom-6 right-6">
-        <Button className="rounded-full w-14 h-14 flex items-center justify-center text-2xl p-0">
-          <IconPlus size={28} />
-        </Button>
-      </Link>
-    </div>
-  )
+return (
+  <div className="px-4 py-6 max-w-lg mx-auto w-full">
+    <ListGrid userEmail={session.user.email!} />
+    <Link href="/lists/new" className="fixed bottom-6 right-6">
+      <Button className="rounded-full w-14 h-14 flex items-center justify-center text-2xl p-0">
+        <IconPlus size={28} />
+      </Button>
+    </Link>
+  </div>
+)
 ```
 
 The full updated `app/page.tsx`:
@@ -981,6 +1023,7 @@ git commit -m "feat: add authenticated home page with real-time list grid"
 ## Task 11: Auth-protected layout + create list page
 
 **Files:**
+
 - Create: `app/lists/layout.tsx`
 - Create: `lib/actions/lists.ts`
 - Create: `app/lists/new/page.tsx`
@@ -992,7 +1035,11 @@ git commit -m "feat: add authenticated home page with real-time list grid"
 import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 
-export default async function ListsLayout({ children }: { children: React.ReactNode }) {
+export default async function ListsLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   const session = await auth()
   if (!session) redirect("/")
   return <>{children}</>
@@ -1013,7 +1060,11 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 vi.mock("@/lib/firebase-admin", () => ({ getAdminApp: vi.fn() }))
 vi.mock("firebase-admin/firestore", () => ({
   getFirestore: vi.fn(),
-  FieldValue: { serverTimestamp: vi.fn(), arrayUnion: vi.fn(), arrayRemove: vi.fn() },
+  FieldValue: {
+    serverTimestamp: vi.fn(),
+    arrayUnion: vi.fn(),
+    arrayRemove: vi.fn(),
+  },
 }))
 
 import { validateListInput } from "../actions/lists"
@@ -1026,10 +1077,14 @@ describe("validateListInput", () => {
     })
   })
   it("throws when title is empty", () => {
-    expect(() => validateListInput("", "Mercadona")).toThrow("El título es requerido")
+    expect(() => validateListInput("", "Mercadona")).toThrow(
+      "El título es requerido",
+    )
   })
   it("throws when market is empty", () => {
-    expect(() => validateListInput("Pan", "   ")).toThrow("El mercado es requerido")
+    expect(() => validateListInput("Pan", "   ")).toThrow(
+      "El mercado es requerido",
+    )
   })
 })
 ```
@@ -1133,13 +1188,18 @@ export async function removeUserFromList(listId: string, email: string) {
     throw new Error("Sin permisos para eliminar usuarios")
   }
 
-  const target = (data.allowedUsers as AllowedUser[]).find((u) => u.email === email)
-  if (target?.role === "owner") throw new Error("No se puede eliminar al propietario")
+  const target = (data.allowedUsers as AllowedUser[]).find(
+    (u) => u.email === email,
+  )
+  if (target?.role === "owner")
+    throw new Error("No se puede eliminar al propietario")
 
   const updatedAllowedUsers = (data.allowedUsers as AllowedUser[]).filter(
     (u) => u.email !== email,
   )
-  const updatedMemberEmails = (data.memberEmails as string[]).filter((e) => e !== email)
+  const updatedMemberEmails = (data.memberEmails as string[]).filter(
+    (e) => e !== email,
+  )
 
   await listRef.update({
     allowedUsers: updatedAllowedUsers,
@@ -1164,7 +1224,8 @@ export async function deleteList(listId: string) {
   const caller = (data.allowedUsers as AllowedUser[]).find(
     (u) => u.email === session.user!.email,
   )
-  if (caller?.role !== "owner") throw new Error("Solo el propietario puede eliminar la lista")
+  if (caller?.role !== "owner")
+    throw new Error("Solo el propietario puede eliminar la lista")
 
   await listRef.delete()
   redirect("/")
@@ -1190,7 +1251,10 @@ import Link from "next/link"
 export default function NewListPage() {
   return (
     <div className="px-4 py-6 max-w-lg mx-auto w-full">
-      <Link href="/" className="flex items-center gap-1 text-text/60 mb-6 hover:text-text transition-colors">
+      <Link
+        href="/"
+        className="flex items-center gap-1 text-text/60 mb-6 hover:text-text transition-colors"
+      >
         <IconArrowLeft size={18} />
         <span className="text-sm">Volver</span>
       </Link>
@@ -1247,6 +1311,7 @@ git commit -m "feat: add create list form, Server Actions, and auth-protected la
 ## Task 12: List detail page with real-time listener
 
 **Files:**
+
 - Create: `components/lists/ListDetail.tsx`
 - Create: `app/lists/[id]/page.tsx`
 
@@ -1285,16 +1350,28 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
       firestoreUnsub = onSnapshot(
         doc(db, "lists", listId),
         (snap) => {
-          if (!snap.exists()) { router.push("/"); return }
+          if (!snap.exists()) {
+            router.push("/")
+            return
+          }
           const data = snap.data()
-          if (!(data.memberEmails as string[]).includes(userEmail)) { router.push("/"); return }
+          if (!(data.memberEmails as string[]).includes(userEmail)) {
+            router.push("/")
+            return
+          }
           setList({ id: snap.id, ...data } as ShoppingList)
         },
-        () => { toast.error("Error al cargar la lista"); router.push("/") },
+        () => {
+          toast.error("Error al cargar la lista")
+          router.push("/")
+        },
       )
     })
 
-    return () => { authUnsub(); firestoreUnsub?.() }
+    return () => {
+      authUnsub()
+      firestoreUnsub?.()
+    }
   }, [listId, userEmail, router])
 
   const userEntry = list.allowedUsers.find((u) => u.email === userEmail)
@@ -1302,7 +1379,10 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
 
   return (
     <div className="px-4 py-6 max-w-lg mx-auto w-full">
-      <Link href="/" className="flex items-center gap-1 text-text/60 mb-4 hover:text-text transition-colors">
+      <Link
+        href="/"
+        className="flex items-center gap-1 text-text/60 mb-4 hover:text-text transition-colors"
+      >
         <IconArrowLeft size={18} />
         <span className="text-sm">Mis listas</span>
       </Link>
@@ -1314,7 +1394,10 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
         <p>Aún no hay productos</p>
       </div>
       {canShare && (
-        <Link href={`/lists/${listId}/settings`} className="fixed bottom-6 right-6">
+        <Link
+          href={`/lists/${listId}/settings`}
+          className="fixed bottom-6 right-6"
+        >
           <Button className="flex items-center gap-2">
             <IconShare size={18} />
             Compartir
@@ -1351,16 +1434,13 @@ export default async function ListPage({ params }: Props) {
   if (!snap.exists) redirect("/")
 
   const data = snap.data()!
-  if (!(data.memberEmails as string[]).includes(session.user.email)) redirect("/")
+  if (!(data.memberEmails as string[]).includes(session.user.email))
+    redirect("/")
 
   const list = { id: snap.id, ...data } as ShoppingList
 
   return (
-    <ListDetail
-      initialList={list}
-      userEmail={session.user.email}
-      listId={id}
-    />
+    <ListDetail initialList={list} userEmail={session.user.email} listId={id} />
   )
 }
 ```
@@ -1384,6 +1464,7 @@ git commit -m "feat: add real-time list detail page"
 ## Task 13: List settings page — manage users
 
 **Files:**
+
 - Create: `components/lists/UserList.tsx`
 - Create: `components/lists/AddUserForm.tsx`
 - Create: `app/lists/[id]/settings/page.tsx`
@@ -1429,17 +1510,19 @@ export function UserList({ list, currentUserEmail, canManage }: Props) {
               {ROLE_LABELS[user.role]}
             </span>
           </div>
-          {canManage && user.role !== "owner" && user.email !== currentUserEmail && (
-            <form action={removeUserFromList.bind(null, list.id, user.email)}>
-              <button
-                type="submit"
-                className="text-danger hover:opacity-70 transition-opacity"
-                aria-label="Eliminar usuario"
-              >
-                <IconTrash size={18} />
-              </button>
-            </form>
-          )}
+          {canManage &&
+            user.role !== "owner" &&
+            user.email !== currentUserEmail && (
+              <form action={removeUserFromList.bind(null, list.id, user.email)}>
+                <button
+                  type="submit"
+                  className="text-danger hover:opacity-70 transition-opacity"
+                  aria-label="Eliminar usuario"
+                >
+                  <IconTrash size={18} />
+                </button>
+              </form>
+            )}
         </li>
       ))}
     </ul>
@@ -1470,7 +1553,9 @@ export function AddUserForm({ listId }: { listId: string }) {
       setEmail("")
       toast.success("Usuario añadido")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error al añadir usuario")
+      toast.error(
+        err instanceof Error ? err.message : "Error al añadir usuario",
+      )
     } finally {
       setLoading(false)
     }
@@ -1532,9 +1617,9 @@ export default async function ListSettingsPage({ params }: Props) {
   if (!snap.exists) redirect("/")
 
   const data = snap.data()!
-  const userEntry = (data.allowedUsers as { email: string; role: string }[]).find(
-    (u) => u.email === session.user!.email,
-  )
+  const userEntry = (
+    data.allowedUsers as { email: string; role: string }[]
+  ).find((u) => u.email === session.user!.email)
   if (!userEntry) redirect("/")
 
   const list = { id: snap.id, ...data } as ShoppingList
@@ -1551,7 +1636,11 @@ export default async function ListSettingsPage({ params }: Props) {
         <span className="text-sm">Volver a la lista</span>
       </Link>
       <h1 className="text-2xl font-bold mb-6">Compartir "{list.title}"</h1>
-      <UserList list={list} currentUserEmail={session.user.email} canManage={canManage} />
+      <UserList
+        list={list}
+        currentUserEmail={session.user.email}
+        canManage={canManage}
+      />
       {canManage && <AddUserForm listId={id} />}
       {isOwner && (
         <form
@@ -1616,6 +1705,7 @@ service cloud.firestore {
 - [ ] **Step 2: Deploy rules to Firebase**
 
 Install Firebase CLI if not present:
+
 ```bash
 pnpm add -g firebase-tools
 firebase login

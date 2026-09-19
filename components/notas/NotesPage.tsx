@@ -17,7 +17,7 @@ export function NotesPage({
   const [isCreating, setIsCreating] = useState(false)
 
   return (
-    <div className="flex flex-col items-center justify-center gap-8 px-4 py-16 text-center">
+    <div className="flex flex-col items-center justify-center gap-8 px-4 pt-8 pb-16 text-center">
       <div className="max-w-lg mx-auto w-full">
         <div className="flex items-center gap-2 mb-4 text-text/70">
           <IconArrowLeft size={18} />
@@ -40,7 +40,9 @@ export function NotesPage({
           />
         </div>
 
-        {!isCreating && <AddButton color="orange" onClick={() => setIsCreating(true)} fixed />}
+        {!isCreating && (
+          <AddButton color="orange" onClick={() => setIsCreating(true)} fixed />
+        )}
       </div>
     </div>
   )

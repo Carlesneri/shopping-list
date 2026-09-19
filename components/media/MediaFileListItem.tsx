@@ -18,9 +18,21 @@ const MEDIA_TYPE_LABELS: Record<MediaKind, string> = {
   audio: "Audio",
 }
 
+const MEGABYTE = 1024 ** 2
+const GIGABYTE = 1024 ** 3
+
+// One decimal for MB/GB ("1.5 MB"), plain integer for bytes below a KB.
+const sizeNumberFormatter = new Intl.NumberFormat("es", {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+})
+
 function formatSize(bytes: number) {
-  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-  if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  if (bytes >= GIGABYTE)
+    return `${sizeNumberFormatter.format(bytes / GIGABYTE)} GB`
+  if (bytes >= MEGABYTE)
+    return `${sizeNumberFormatter.format(bytes / MEGABYTE)} MB`
+  if (bytes >= 1024) return `${sizeNumberFormatter.format(bytes / 1024)} KB`
   return `${bytes} B`
 }
 
@@ -134,7 +146,7 @@ export function MediaFileListItem({
             </button>
           )}
         </div>
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           {isFile && entry.size !== undefined ? (
             <div className="flex min-w-0 items-center gap-1.5">
               <span className="shrink-0 text-xs text-text/50">

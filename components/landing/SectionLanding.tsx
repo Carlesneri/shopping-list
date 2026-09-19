@@ -47,7 +47,7 @@ export function SectionLanding({
 }) {
   return (
     <div className="px-4">
-      <section className="max-w-3xl mx-auto text-center py-16 sm:py-24">
+      <section className="max-w-3xl mx-auto text-center pt-8 pb-16">
         <h1 className="text-4xl sm:text-5xl font-extrabold leading-tight text-balance">
           {config.h1}
         </h1>
@@ -113,7 +113,7 @@ export function SectionLanding({
         </ol>
       </section>
 
-      <section className="max-w-2xl mx-auto text-center py-16">
+      <section className="max-w-2xl mx-auto text-center pt-8 pb-16">
         <h2 className="text-2xl sm:text-3xl font-extrabold mb-3">
           ¿Listo para probarlo?
         </h2>

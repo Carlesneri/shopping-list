@@ -182,7 +182,6 @@ export function UploadButton({
         ) : (
           <IconUpload size={18} strokeWidth={2.5} />
         )}
-        Subir archivos
       </button>
     </>
   )

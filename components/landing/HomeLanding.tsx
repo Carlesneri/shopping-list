@@ -46,7 +46,7 @@ export function HomeLanding() {
         // biome-ignore lint/security/noDangerouslySetInnerHtml: static, self-produced JSON-LD for structured data
         dangerouslySetInnerHTML={{ __html: jsonLd }}
       />
-      <section className="max-w-3xl mx-auto text-center py-16 sm:py-20">
+      <section className="max-w-3xl mx-auto text-center pt-8 pb-16">
         <Image
           src="/compale.png"
           alt="COMPALE — lista de la compra colaborativa"
@@ -96,7 +96,7 @@ export function HomeLanding() {
         </div>
       </section>
 
-      <section className="max-w-2xl mx-auto text-center py-16">
+      <section className="max-w-2xl mx-auto text-center pt-8 pb-16">
         <h2 className="text-2xl sm:text-3xl font-extrabold mb-3">
           ¿Listo para empezar?
         </h2>

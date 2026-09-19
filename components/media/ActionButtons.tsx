@@ -41,7 +41,7 @@ export function ActionButtons({
     "shrink-0 cursor-pointer rounded-md p-1.5 transition-colors disabled:cursor-wait text-primary hover:text-primary-dark disabled:text-primary/40"
 
   return (
-    <div className="ml-auto flex items-center gap-2">
+    <div className="ml-auto flex items-center">
       {mediaKind ? (
         <button
           type="button"

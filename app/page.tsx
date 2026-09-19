@@ -63,7 +63,7 @@ export default async function HomePage() {
   const shortcuts = await getShortcuts()
 
   return (
-    <div className="flex flex-col items-center justify-center gap-8 px-4 py-16 text-center">
+    <div className="flex flex-col items-center justify-center gap-8 px-4 pt-8 pb-16 text-center">
       <div className="max-w-lg mx-auto w-full">
         {session.user?.name && (
           <h2 className="text-2xl font-bold mb-6">Hola, {session.user.name}</h2>

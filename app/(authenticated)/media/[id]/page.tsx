@@ -106,7 +106,7 @@ export default async function MediaStoragePage({ params }: Props) {
 
   return (
     <MediaPlayerProvider>
-      <div className="flex flex-col gap-6 px-4 py-6 max-w-lg mx-auto w-full">
+      <div className="flex flex-col px-4 py-6 max-w-lg mx-auto w-full">
         <MediaDetail media={media} userEmail={session.user.email} />
 
         <Suspense
