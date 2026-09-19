@@ -69,7 +69,7 @@ export default async function ListPage({ params }: Props) {
         userEmail={session.user.email}
         listId={id}
       />
-      <ScrollToTop color="purple" />
+      <ScrollToTop color="primary" />
     </>
   )
 }

@@ -6,7 +6,7 @@ import type { ShoppingList } from "@/lib/types"
 export function ListCard({ list }: { list: ShoppingList }) {
   return (
     <Link href={`/compras/${list.id}`}>
-      <div className="relative flex flex-col gap-1 p-4 bg-white rounded-md border-2 border-purple shadow-[0_4px_0_0_#5b1fb5] hover:translate-y-px hover:shadow-[0_3px_0_0_#5b1fb5] active:translate-y-1 active:shadow-none transition-transform">
+      <div className="relative flex flex-col gap-1 p-4 bg-white rounded-md border-2 border-primary shadow-[0_4px_0_0_#3a8a00] hover:translate-y-px hover:shadow-[0_3px_0_0_#3a8a00] active:translate-y-1 active:shadow-none transition-transform">
         <div className="absolute top-3 right-3">
           <ShareButton path={`/compras/${list.id}`} variant="plain" />
         </div>

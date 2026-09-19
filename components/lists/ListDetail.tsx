@@ -62,7 +62,7 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
         setIsShortcut(false)
         toast.success("Acceso directo eliminado")
       } else {
-        await addShortcut("list", listId, list.title, "purple", "shopping-cart")
+        await addShortcut("list", listId, list.title, "green", "shopping-cart")
         setIsShortcut(true)
         toast.success("Acceso directo añadido al inicio")
       }
@@ -203,7 +203,7 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
         <div className="flex items-center gap-2">
           <FabButton
             type="button"
-            color={isShortcut ? "purple" : "blue"}
+            color={isShortcut ? "primary" : "blue"}
             size="sm"
             onClick={handleShortcutToggle}
             disabled={shortcutLoading}
@@ -326,7 +326,7 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
         </div>
       )}
 
-      <AddButton color="blue" onClick={() => setIsFormOpen((v) => !v)} fixed/>
+      <AddButton color="primary" onClick={() => setIsFormOpen((v) => !v)} fixed/>
     </div>
   )
 }

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { IconArrowUp } from "@tabler/icons-react"
 import { FabButton } from "@/components/ui/FabButton"
 
-type FabColor = "green" | "blue" | "purple" | "orange" | "pink"
+type FabColor = "primary" | "green" | "blue" | "purple" | "orange" | "pink"
 
 export function ScrollToTop({ color = "green" }: { color?: FabColor }) {
   const [visible, setVisible] = useState(false)

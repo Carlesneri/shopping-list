@@ -18,21 +18,25 @@ function NavCard({
   href: string
 }) {
   const bgColors: Record<string, string> = {
+    green: "bg-primary-dark hover:bg-primary",
     purple: "bg-purple hover:bg-purple/90",
     orange: "bg-orange hover:bg-orange/90",
     blue: "bg-blue hover:bg-blue/90",
   }
   const textColors: Record<string, string> = {
+    green: "text-white",
     purple: "text-white",
     orange: "text-white",
     blue: "text-white",
   }
   const iconColors: Record<string, string> = {
+    green: "text-white",
     purple: "text-white",
     orange: "text-white",
     blue: "text-white",
   }
   const shadowColors: Record<string, string> = {
+    green: "shadow-[0_4px_0_0_#3a8a00] hover:shadow-[0_3px_0_0_#3a8a00]",
     purple: "shadow-[0_4px_0_0_#5b1fb5] hover:shadow-[0_3px_0_0_#5b1fb5]",
     orange: "shadow-[0_4px_0_0_#c45c0a] hover:shadow-[0_3px_0_0_#c45c0a]",
     blue: "shadow-[0_4px_0_0_#2e6aad] hover:shadow-[0_3px_0_0_#2e6aad]",
@@ -72,7 +76,7 @@ export default async function HomePage() {
         <div className="flex flex-col gap-3 items-center">
           <NavCard
             title="Mis listas"
-            color="purple"
+            color="green"
             icon={IconShoppingCart}
             href="/compras"
           />
@@ -108,7 +112,6 @@ export default async function HomePage() {
                   <ShortcutCard
                     key={shortcut.id}
                     title={shortcut.title}
-                    color={shortcut.color}
                     iconName={shortcut.icon}
                     href={href}
                     shortcutId={shortcut.id}

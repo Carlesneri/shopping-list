@@ -2,8 +2,10 @@ import type { ButtonHTMLAttributes, ReactNode } from "react"
 import { twMerge } from "tailwind-merge"
 
 const colorClasses = {
+  primary:
+    "bg-primary-dark shadow-[0_4px_0_0_#3a8a00] hover:bg-primary hover:shadow-[0_3px_0_0_#3a8a00]",
   green:
-    "bg-primary shadow-[0_4px_0_0_#3a8a00] hover:shadow-[0_3px_0_0_#3a8a00]",
+    "bg-primary-dark shadow-[0_4px_0_0_#3a8a00] hover:bg-primary hover:shadow-[0_3px_0_0_#3a8a00]",
   blue: "bg-blue    shadow-[0_4px_0_0_#2e6aad] hover:shadow-[0_3px_0_0_#2e6aad]",
   purple:
     "bg-purple  shadow-[0_4px_0_0_#5b1fb5] hover:shadow-[0_3px_0_0_#5b1fb5]",

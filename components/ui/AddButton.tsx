@@ -6,7 +6,7 @@ import { FabButton } from "./FabButton"
 import { twMerge } from "tailwind-merge"
 import { IconPlus } from "@tabler/icons-react"
 
-type Color = "green" | "blue" | "purple" | "orange" | "pink"
+type Color = "primary" | "green" | "blue" | "purple" | "orange" | "pink"
 type Size = "sm" | "lg"
 
 const positionVariants = cva("absolute pointer-events-auto", {

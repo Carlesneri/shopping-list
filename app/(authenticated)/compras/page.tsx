@@ -17,7 +17,7 @@ const landingConfig: SectionLandingConfig = {
   h1: "Listas de la compra en equipo",
   subtitle:
     "Crea una lista de la compra, invita a tu familia o a tus compañeros de piso y comprad juntos. Cada producto marcado se actualiza al instante en el móvil de todos.",
-  accent: "purple",
+  accent: "primary",
   features: [
     {
       icon: IconBolt,
@@ -91,8 +91,8 @@ export default async function ComprasPage() {
         </div>
         <h1 className="text-3xl font-bold mb-3">Listas</h1>
         <ListGrid userEmail={session.user.email} />
-        <AddButton color="purple" href="/compras/nueva-lista" fixed />
-        <ScrollToTop color="purple" />
+        <AddButton color="primary" href="/compras/nueva-lista" fixed />
+        <ScrollToTop color="primary" />
       </div>
     </div>
   )
