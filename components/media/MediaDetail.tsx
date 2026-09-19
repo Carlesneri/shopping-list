@@ -1,11 +1,20 @@
 "use client"
 import { useEffect, useState, useCallback } from "react"
 import Link from "next/link"
-import { IconSettings, IconArrowLeft, IconPin, IconPinFilled } from "@tabler/icons-react"
+import {
+  IconSettings,
+  IconArrowLeft,
+  IconPin,
+  IconPinFilled,
+} from "@tabler/icons-react"
 import { FabButton } from "@/components/ui/FabButton"
 import { ShareButton } from "@/components/ui/ShareButton"
 import type { MediaStorage } from "@/lib/types"
-import { addShortcut, removeShortcut, isShortcut as checkIsShortcut } from "@/lib/actions/shortcuts"
+import {
+  addShortcut,
+  removeShortcut,
+  isShortcut as checkIsShortcut,
+} from "@/lib/actions/shortcuts"
 import { toast } from "sonner"
 
 interface Props {
@@ -47,14 +56,18 @@ export function MediaDetail({ media, userEmail }: Props) {
         toast.success("Acceso directo añadido al inicio")
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error al actualizar acceso directo")
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Error al actualizar acceso directo",
+      )
     } finally {
       setShortcutLoading(false)
     }
   }
 
   return (
-    <div className="py-6 max-w-lg mx-auto w-full">
+    <div className="max-w-lg mx-auto w-full">
       <Link
         href="/media"
         className="flex items-center gap-1 text-text/60 mb-5 hover:text-text transition-colors w-fit"
@@ -72,7 +85,11 @@ export function MediaDetail({ media, userEmail }: Props) {
             size="sm"
             onClick={handleShortcutToggle}
             disabled={shortcutLoading}
-            aria-label={isShortcut ? "Eliminar acceso directo" : "Añadir acceso directo al inicio"}
+            aria-label={
+              isShortcut
+                ? "Eliminar acceso directo"
+                : "Añadir acceso directo al inicio"
+            }
           >
             {isShortcut ? <IconPinFilled size={18} /> : <IconPin size={18} />}
           </FabButton>
