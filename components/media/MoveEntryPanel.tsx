@@ -214,7 +214,10 @@ export function MoveEntryPanel({
     loadFolderTree(
       mediaId,
       (folders) => {
-        if (!cancelled) setTreeFolders(folders)
+        if (!cancelled) {
+          setTreeFolders(folders)
+          setTreeLoading(false)
+        }
       },
       () => {
         if (!cancelled) setTreeLoading(false)

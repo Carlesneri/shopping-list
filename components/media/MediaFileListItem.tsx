@@ -207,7 +207,7 @@ export function MediaFileListItem({
             ) : null}
             <div className="flex justify-between gap-3">
               <dt className="text-text/50">Ruta</dt>
-              <dd className="font-mono text-xs">{entry.key}</dd>
+              <dd className="break-all font-mono text-xs">{entry.key}</dd>
             </div>
           </dl>
         </div>
