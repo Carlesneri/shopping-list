@@ -32,7 +32,6 @@ interface Props {
 const SAVE_DEBOUNCE_MS = 800
 
 export function NotaDetail({ initialNota, userEmail, notaId }: Props) {
-  const [, setNota] = useState<Nota>(initialNota)
   const [draft, setDraft] = useState(initialNota.text ?? "")
   const [saving, setSaving] = useState(false)
   const [isShortcut, setIsShortcut] = useState(false)
@@ -140,17 +139,6 @@ export function NotaDetail({ initialNota, userEmail, notaId }: Props) {
           if (!(data.memberEmails as string[]).includes(userEmail)) {
             router.push("/")
             return
-          }
-          const remoteText = (data.text as string) ?? ""
-          setNota({
-            id: snap.id,
-            ...data,
-            text: remoteText,
-          } as Nota)
-          // Last-write-wins reconciliation: only pull remote edits when we
-          // aren't in the middle of typing an unsent change.
-          if (!dirtyRef.current) {
-            setDraft(remoteText)
           }
         },
         () => {

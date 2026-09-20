@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState, type ComponentType } from "react"
+import { useRef, useState, type ComponentType } from "react"
 import {
   EditorContent,
   useEditor,
@@ -163,10 +163,6 @@ interface RichTextEditorProps {
   contentClassName?: string
 }
 
-function isEmptyHtml(html: string) {
-  return html === "" || html === "<p></p>"
-}
-
 export function RichTextEditor({
   content,
   onChange,
@@ -210,15 +206,6 @@ export function RichTextEditor({
     canRedo: false,
   }
   const { activeLabels, isLinkActive, canUndo, canRedo } = toolbarState
-
-  // Sync external content updates (e.g. remote changes) into the editor.
-  useEffect(() => {
-    if (!editor || editor.isDestroyed) return
-    const current = editor.getHTML()
-    if (current === content || (isEmptyHtml(current) && isEmptyHtml(content)))
-      return
-    editor.commands.setContent(toEditorHtml(content), { emitUpdate: false })
-  }, [content, editor])
 
   if (!editor) return null
 

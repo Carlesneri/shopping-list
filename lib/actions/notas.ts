@@ -131,7 +131,6 @@ export async function updateNotaText(notaId: string, text: string) {
     text: sanitizeNotaHtml(text.trim()),
     updatedAt: FieldValue.serverTimestamp(),
   })
-  revalidatePath(`/notas/${notaId}`)
 }
 
 export async function deleteNota(notaId: string) {
