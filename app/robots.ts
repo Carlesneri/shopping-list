@@ -7,9 +7,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      // Section roots (/compras, /notas, /media) are public landing pages;
-      // everything under them is private app content.
-      disallow: ["/compras/", "/notas/", "/media/", "/api/"],
+      disallow: ["/api/"],
     },
     sitemap: `${baseUrl}/sitemap.xml`,
   }
