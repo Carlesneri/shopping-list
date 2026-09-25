@@ -55,12 +55,8 @@ export function MediaDetail({ media, userEmail }: Props) {
         setIsShortcut(true)
         toast.success("Acceso directo añadido al inicio")
       }
-    } catch (err) {
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : "Error al actualizar acceso directo",
-      )
+    } catch {
+      toast.error("Error al actualizar acceso directo")
     } finally {
       setShortcutLoading(false)
     }

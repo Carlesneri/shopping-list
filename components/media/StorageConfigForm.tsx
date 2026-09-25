@@ -49,12 +49,8 @@ export function StorageConfigForm({ mediaId, config }: Props) {
       )
       setSecretAccessKey("")
       toast.success("Configuración actualizada")
-    } catch (err) {
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : "Error al guardar la configuración",
-      )
+    } catch {
+      toast.error("Error al guardar la configuración")
     } finally {
       setLoading(false)
     }

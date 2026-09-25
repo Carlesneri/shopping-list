@@ -55,8 +55,8 @@ export function ShortcutCard({
       try {
         await removeShortcut(type, shortcutId.split(":")[1])
         toast.success("Acceso directo eliminado")
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Error al eliminar")
+      } catch {
+        toast.error("Error al eliminar")
       }
     })
   }

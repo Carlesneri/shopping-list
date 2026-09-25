@@ -143,9 +143,7 @@ export function UploadButton({
           console.error("[media:upload] failed", reason)
           toast.error(
             failures.length === list.length
-              ? reason instanceof Error
-                ? reason.message
-                : "No se pudieron subir los archivos"
+              ? "No se pudieron subir los archivos"
               : `No se pudieron subir ${failures.length} de ${list.length} archivos`,
           )
         }

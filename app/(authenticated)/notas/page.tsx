@@ -45,10 +45,6 @@ const landingConfig: SectionLandingConfig = {
 }
 
 export async function generateMetadata(): Promise<Metadata> {
-  const session = await auth()
-  if (session?.user?.email) {
-    return { robots: { index: false, follow: false } }
-  }
   return {
     title: "Notas compartidas online, colaborativas y gratis",
     description:

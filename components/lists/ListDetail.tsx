@@ -1,5 +1,11 @@
 "use client"
-import { useEffect, useState, useOptimistic, startTransition, useCallback } from "react"
+import {
+  useEffect,
+  useState,
+  useOptimistic,
+  startTransition,
+  useCallback,
+} from "react"
 import { doc, onSnapshot } from "firebase/firestore"
 import { onAuthStateChanged } from "firebase/auth"
 import { useRouter } from "next/navigation"
@@ -16,7 +22,11 @@ import {
   removeProductFromList,
   toggleProductChecked,
 } from "@/lib/actions/products"
-import { addShortcut, removeShortcut, isShortcut as checkIsShortcut } from "@/lib/actions/shortcuts"
+import {
+  addShortcut,
+  removeShortcut,
+  isShortcut as checkIsShortcut,
+} from "@/lib/actions/shortcuts"
 import {
   IconSettings,
   IconArrowLeft,
@@ -66,8 +76,8 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
         setIsShortcut(true)
         toast.success("Acceso directo añadido al inicio")
       }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error al actualizar acceso directo")
+    } catch {
+      toast.error("Error al actualizar acceso directo")
     } finally {
       setShortcutLoading(false)
     }
@@ -109,8 +119,8 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
       applyOptimistic({ type: "toggle", productId, checked: !current })
       try {
         await toggleProductChecked(listId, productId, !current)
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Error al guardar")
+      } catch {
+        toast.error("Error al guardar")
       }
     })
   }
@@ -123,10 +133,8 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
       applyOptimistic({ type: "quantity", productId, quantity })
       try {
         await updateProductQuantity(listId, productId, delta)
-      } catch (err) {
-        toast.error(
-          err instanceof Error ? err.message : "Error al actualizar cantidad",
-        )
+      } catch {
+        toast.error("Error al actualizar cantidad")
       }
     })
   }
@@ -136,10 +144,8 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
       applyOptimistic({ type: "remove", productId })
       try {
         await removeProductFromList(listId, productId)
-      } catch (err) {
-        toast.error(
-          err instanceof Error ? err.message : "Error al eliminar producto",
-        )
+      } catch {
+        toast.error("Error al eliminar producto")
       }
     })
   }
@@ -207,7 +213,11 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
             size="sm"
             onClick={handleShortcutToggle}
             disabled={shortcutLoading}
-            aria-label={isShortcut ? "Eliminar acceso directo" : "Añadir acceso directo al inicio"}
+            aria-label={
+              isShortcut
+                ? "Eliminar acceso directo"
+                : "Añadir acceso directo al inicio"
+            }
           >
             {isShortcut ? <IconPinFilled size={18} /> : <IconPin size={18} />}
           </FabButton>
@@ -326,7 +336,11 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
         </div>
       )}
 
-      <AddButton color="primary" onClick={() => setIsFormOpen((v) => !v)} fixed/>
+      <AddButton
+        color="primary"
+        onClick={() => setIsFormOpen((v) => !v)}
+        fixed
+      />
     </div>
   )
 }

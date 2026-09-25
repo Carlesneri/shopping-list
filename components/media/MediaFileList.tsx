@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { IconChevronRight, IconSearch } from "@tabler/icons-react"
+import { IconChevronRight, IconSearch, IconX } from "@tabler/icons-react"
 import type { StorageEntry } from "@/lib/types"
 import {
   createMediaFolder,
@@ -52,9 +52,9 @@ export function MediaFileList({
   const { openPlayer } = useMediaPlayer()
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [moveKey, setMoveKey] = useState<string | null>(null)
-  const [loadingActions, setLoadingActions] = useState<
-    Record<string, boolean>
-  >({})
+  const [loadingActions, setLoadingActions] = useState<Record<string, boolean>>(
+    {},
+  )
   const hasNotified = useRef(false)
   const [entries, setEntries] = useState(initialEntries)
   const [loadingEntries, setLoadingEntries] = useState(false)
@@ -90,12 +90,7 @@ export function MediaFileList({
       })
       .catch((error) => {
         console.error("[media:navigate] failed to load entries", error)
-        if (!cancelled)
-          toast.error(
-            error instanceof Error
-              ? error.message
-              : "Error al cargar el contenido",
-          )
+        if (!cancelled) toast.error("Error al cargar el contenido")
       })
       .finally(() => {
         setLoadingEntries(false)
@@ -163,11 +158,7 @@ export function MediaFileList({
       await run()
     } catch (error) {
       console.error(`[media:${action}] failed for ${entry.key}`, error)
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "No se pudo completar la acción",
-      )
+      toast.error("No se pudo completar la acción")
     } finally {
       setLoadingActions((prev) => {
         const next = { ...prev }
@@ -229,18 +220,7 @@ export function MediaFileList({
   // against itself.
   const [movingKeys, setMovingKeys] = useState<Set<string>>(() => new Set())
 
-  function moveErrorMessage(error: unknown) {
-    const message =
-      error instanceof Error ? error.message : "No se pudo mover el elemento"
-    if (/NoSuchKey/i.test(message))
-      return "El elemento ya no está en su ubicación original. Actualiza la lista."
-    if (/TimeoutError|timed out|exceeded.*timeout/i.test(message))
-      return "La operación tardó demasiado. Inténtalo de nuevo en unos momentos."
-    return message
-  }
-
   // Materialize locally-staged folders along the destination chain, shortest
-  // path first so parents exist before children.
   async function createStagedFolders(
     toPrefix: string,
     stagedFolders: string[],
@@ -278,7 +258,7 @@ export function MediaFileList({
       // transition after a server action could hang the UI (vercel/next.js#86055).
     } catch (error) {
       console.error("[media:move] failed", error)
-      toast.error(moveErrorMessage(error))
+      toast.error("No se pudo mover el elemento")
     } finally {
       setMovingKeys((prev) => {
         const next = new Set(prev)
@@ -329,8 +309,19 @@ export function MediaFileList({
           placeholder="Buscar archivos…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded-md border border-black/10 bg-white py-1.5 pl-9 pr-3 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+          className="w-full rounded-md border border-black/10 bg-white py-1.5 pl-9 pr-10 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
         />
+        {search ? (
+          <button
+            type="button"
+            onClick={() => setSearch("")}
+            title="Limpiar búsqueda"
+            aria-label="Limpiar búsqueda"
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 cursor-pointer rounded p-1 text-text/40 transition-colors hover:text-text"
+          >
+            <IconX size={16} strokeWidth={2.5} />
+          </button>
+        ) : null}
       </div>
       <ul className="flex flex-col gap-2">
         {uploadingEntries.map((entry) => (

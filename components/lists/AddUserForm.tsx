@@ -28,10 +28,8 @@ export function AddUserForm({
       await addUserAction(id, email, role)
       setEmail("")
       toast.success(successMessage)
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Error al añadir usuario",
-      )
+    } catch {
+      toast.error("Error al añadir usuario")
     } finally {
       setLoading(false)
     }

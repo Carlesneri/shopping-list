@@ -13,11 +13,7 @@ interface Props {
   productToEdit?: ListProduct | null
 }
 
-export function AddProductForm({
-  listId,
-  onClose,
-  productToEdit,
-}: Props) {
+export function AddProductForm({ listId, onClose, productToEdit }: Props) {
   const [name, setName] = useState("")
   const [quantity, setQuantity] = useState(1)
   const [loading, setLoading] = useState(false)
@@ -45,9 +41,9 @@ export function AddProductForm({
         await addProductToList(listId, name, quantity)
       }
       onClose()
-    } catch (err) {
+    } catch {
       toast.error(
-        err instanceof Error ? err.message : isEditing ? "Error al editar producto" : "Error al añadir producto",
+        isEditing ? "Error al editar producto" : "Error al añadir producto",
       )
     } finally {
       setLoading(false)
@@ -115,8 +111,8 @@ export function AddProductForm({
               ? "Guardando…"
               : "Añadiendo…"
             : isEditing
-            ? "Guardar"
-            : "Añadir"}
+              ? "Guardar"
+              : "Añadir"}
         </Button>
       </div>
     </form>

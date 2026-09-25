@@ -52,10 +52,6 @@ const landingConfig: SectionLandingConfig = {
 }
 
 export async function generateMetadata(): Promise<Metadata> {
-  const session = await auth()
-  if (session?.user?.email) {
-    return { robots: { index: false, follow: false } }
-  }
   return {
     title: "Listas de la compra colaborativas online y gratis",
     description:

@@ -30,8 +30,8 @@ export function RenameListForm({
     try {
       await renameAction(id, title)
       toast.success(successMessage)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error al renombrar")
+    } catch {
+      toast.error("Error al renombrar")
     } finally {
       setLoading(false)
     }

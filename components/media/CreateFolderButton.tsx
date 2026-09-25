@@ -81,9 +81,7 @@ export function NewFolderForm({
       startTransition(() => router.refresh())
     } catch (error) {
       console.error("[media:mkdir] failed", error)
-      toast.error(
-        error instanceof Error ? error.message : "No se pudo crear la carpeta",
-      )
+      toast.error("No se pudo crear la carpeta")
       setCreating(false)
     }
   }

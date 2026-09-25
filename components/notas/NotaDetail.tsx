@@ -86,8 +86,8 @@ export function NotaDetail({ initialNota, userEmail, notaId }: Props) {
       if (draftRef.current === text) {
         dirtyRef.current = false
       }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error al guardar")
+    } catch {
+      toast.error("Error al guardar")
     } finally {
       setSaving(false)
     }
