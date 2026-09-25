@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache"
 import {
   S3Client,
   ListObjectsV2Command,
+  HeadObjectCommand,
   GetObjectCommand,
   PutObjectCommand,
   CopyObjectCommand,
@@ -15,7 +16,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { getDB } from "@/lib/firebase-admin"
 import { validateMediaInput, validateMediaConfigUpdate } from "@/lib/validation"
 import { decryptSecret, encryptSecret } from "@/lib/crypto"
-import { detectMediaKind } from "@/lib/media-utils"
+import { detectMediaKind, MOVE_MAX_SIZE } from "@/lib/media-utils"
 import {
   requireAuth,
   requireCallerRole,
@@ -630,8 +631,8 @@ export async function getMediaUploadUrl(
 
   if (size <= 0) throw new Error("El archivo está vacío")
   // Single-shot PUT tops out at 5 GB in R2.
-  if (size > COPY_MAX_SIZE)
-    throw new Error("El archivo supera el límite de 5 GB por archivo")
+  if (size > MOVE_MAX_SIZE)
+    throw new Error("El archivo supera el límite de tamaño por archivo")
 
   const { client, bucket } = await getMediaStorageClient(mediaId)
 
@@ -689,9 +690,6 @@ export async function createMediaFolder(
 function encodeCopySource(bucket: string, key: string) {
   return `${bucket}/${key.split("/").map(encodeURIComponent).join("/")}`
 }
-
-// Single-shot CopyObject and PUT top out at 5 GB in S3/R2.
-const COPY_MAX_SIZE = 5 * 1024 * 1024 * 1024
 
 const MAX_FOLDERS = 200
 
@@ -773,6 +771,10 @@ async function moveEntryWithClient(
 
       for (const obj of response.Contents ?? []) {
         const key = obj.Key!
+        if ((obj.Size ?? 0) > MOVE_MAX_SIZE)
+          throw new Error(
+            "La carpeta contiene archivos que superan el límite de 5 GB por archivo",
+          )
         const newKey = `${newPrefix}${key.slice(fromKey.length)}`
         await client.send(
           new CopyObjectCommand({
@@ -795,6 +797,12 @@ async function moveEntryWithClient(
   if (!fileName) throw new Error("Clave de origen inválida")
   const newKey = toPrefix + fileName
   if (newKey === fromKey) return false
+
+  const head = await client.send(
+    new HeadObjectCommand({ Bucket: bucket, Key: fromKey }),
+  )
+  if ((head.ContentLength ?? 0) > MOVE_MAX_SIZE)
+    throw new Error("El archivo supera el límite de tamaño por archivo")
 
   await client.send(
     new CopyObjectCommand({

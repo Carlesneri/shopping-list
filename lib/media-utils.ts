@@ -1,5 +1,9 @@
 import type { MediaKind } from "./types"
 
+/** Single-shot CopyObject and PUT top out at 5 GB in S3/R2. Moving (copy +
+ * delete) is rejected above this size. */
+export const MOVE_MAX_SIZE = 5 * 1024 * 1024 * 1024
+
 /**
  * Detects the media kind from a file name / object key extension. Returns
  * undefined for anything that is not a recognized video, image or audio file.

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { IconChevronRight, IconSearch, IconX } from "@tabler/icons-react"
 import type { StorageEntry } from "@/lib/types"
+import { MOVE_MAX_SIZE } from "@/lib/media-utils"
 import {
   createMediaFolder,
   deleteMediaEntry,
@@ -244,6 +245,10 @@ export function MediaFileList({
     stagedFolders: string[],
   ) {
     if (movingKeys.has(entry.key)) return
+    if (entry.type === "file" && (entry.size ?? 0) > MOVE_MAX_SIZE) {
+      toast.error("El archivo supera el límite de tamaño por archivo")
+      return
+    }
     setMovingKeys((prev) => new Set(prev).add(entry.key))
     try {
       await createStagedFolders(toPrefix, stagedFolders)
