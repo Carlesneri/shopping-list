@@ -12,10 +12,10 @@ type Size = "sm" | "lg"
 const positionVariants = cva("absolute pointer-events-auto", {
   variants: {
     position: {
-      "bottom-right": "bottom-6 right-0",
-      "bottom-left": "bottom-6 left-0",
-      "top-right": "top-6 right-0",
-      "top-left": "top-6 left-0",
+      "bottom-right": "bottom-6 right-4",
+      "bottom-left": "bottom-6 left-4",
+      "top-right": "top-6 right-4",
+      "top-left": "top-6 left-4",
     },
   },
   defaultVariants: {
