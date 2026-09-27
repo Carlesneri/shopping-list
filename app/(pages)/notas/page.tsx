@@ -68,7 +68,7 @@ export default async function NotasPage() {
 
   return (
     <>
-      <NotesPage userEmail={session.user.email} userName={session.user.name} />
+      <NotesPage userEmail={session.user.email} />
       <ScrollToTop color="orange" />
     </>
   )

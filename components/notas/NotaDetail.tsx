@@ -9,7 +9,8 @@ import { db, clientAuth } from "@/lib/firebase-client"
 import type { Nota } from "@/lib/types"
 import { FabButton } from "@/components/ui/FabButton"
 import { ShareButton } from "@/components/ui/ShareButton"
-import { updateNotaText } from "@/lib/actions/notas"
+import { updateNotaText, deleteNota, leaveNota } from "@/lib/actions/notas"
+import { Button } from "@/components/ui/Button"
 import {
   addShortcut,
   removeShortcut,
@@ -36,9 +37,13 @@ export function NotaDetail({ initialNota, userEmail, notaId }: Props) {
   const [saving, setSaving] = useState(false)
   const [isShortcut, setIsShortcut] = useState(false)
   const [shortcutLoading, setShortcutLoading] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const dirtyRef = useRef(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Set when the note is deleted/left so the live snapshot listener stops
+  // reacting (the doc disappears or we lose read access mid-redirect).
+  const detachedRef = useRef(false)
   const router = useRouter()
 
   const checkShortcut = useCallback(async () => {
@@ -131,6 +136,7 @@ export function NotaDetail({ initialNota, userEmail, notaId }: Props) {
       firestoreUnsub = onSnapshot(
         doc(db, "notas", notaId),
         (snap) => {
+          if (detachedRef.current) return
           if (!snap.exists()) {
             router.push("/")
             return
@@ -142,6 +148,7 @@ export function NotaDetail({ initialNota, userEmail, notaId }: Props) {
           }
         },
         () => {
+          if (detachedRef.current) return
           toast.error("Error al cargar la nota")
           router.push("/")
         },
@@ -156,6 +163,50 @@ export function NotaDetail({ initialNota, userEmail, notaId }: Props) {
 
   const userEntry = initialNota.allowedUsers.find((u) => u.email === userEmail)
   const canShare = userEntry?.role === "owner" || userEntry?.role === "admin"
+
+  // Stop reacting to snapshot changes / pending saves: the doc is about to
+  // disappear (or we lose access), which would fire error redirects.
+  function detachFromNota() {
+    detachedRef.current = true
+    if (timerRef.current) clearTimeout(timerRef.current)
+    dirtyRef.current = false
+  }
+
+  async function handleDelete() {
+    if (deleting) return
+
+    detachFromNota()
+
+    setDeleting(true)
+    try {
+      await deleteNota(notaId)
+      router.push("/notas")
+    } catch (err) {
+      detachedRef.current = false
+      toast.error(
+        err instanceof Error ? err.message : "Error al eliminar la nota",
+      )
+      setDeleting(false)
+    }
+  }
+
+  async function handleLeave() {
+    if (deleting) return
+
+    detachFromNota()
+
+    setDeleting(true)
+    try {
+      await leaveNota(notaId)
+      router.push("/notas")
+    } catch (err) {
+      detachedRef.current = false
+      toast.error(
+        err instanceof Error ? err.message : "Error al salir de la nota",
+      )
+      setDeleting(false)
+    }
+  }
 
   const title = initialNota.title?.trim() || "Nota sin título"
 
@@ -208,6 +259,20 @@ export function NotaDetail({ initialNota, userEmail, notaId }: Props) {
       <div className="flex items-center justify-end gap-1 mt-2 text-text/40 text-xs">
         {saving ? "Guardando…" : "Guardado"}
       </div>
+
+      <Button
+        variant="danger"
+        type="button"
+        onClick={canShare ? handleDelete : handleLeave}
+        disabled={deleting}
+        className="mt-8 w-full"
+      >
+        {deleting
+          ? "Eliminando…"
+          : canShare
+            ? "Eliminar nota"
+            : "Eliminar para mí"}
+      </Button>
     </div>
   )
 }

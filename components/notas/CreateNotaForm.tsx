@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, type FormEvent } from "react"
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react"
 import { Button } from "@/components/ui/Button"
 import { createNota } from "@/lib/actions/notas"
 import { IconX } from "@tabler/icons-react"
@@ -11,6 +11,11 @@ export function CreateNotaForm({ onClose }: { onClose?: () => void }) {
   const [title, setTitle] = useState("")
   const [text, setText] = useState("")
   const [submitting, setSubmitting] = useState(false)
+  const titleInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    titleInputRef.current?.focus()
+  }, [])
 
   const isSubmitDisabled = useMemo(
     () => !title.trim() && !stripHtml(text),
@@ -67,6 +72,7 @@ export function CreateNotaForm({ onClose }: { onClose?: () => void }) {
             Título
           </label>
           <input
+            ref={titleInputRef}
             id="title"
             name="title"
             type="text"

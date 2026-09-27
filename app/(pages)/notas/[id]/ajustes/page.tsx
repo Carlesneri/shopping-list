@@ -4,13 +4,12 @@ import { getDB } from "@/lib/firebase-admin"
 import { UserList } from "@/components/lists/UserList"
 import { AddUserForm } from "@/components/lists/AddUserForm"
 import { RenameListForm } from "@/components/lists/RenameListForm"
+import { DeleteNotaButton } from "@/components/notas/DeleteNotaButton"
 import {
-  deleteNota,
   renameNota,
   addUserToNota,
   removeUserFromNota,
 } from "@/lib/actions/notas"
-import { Button } from "@/components/ui/Button"
 import { ShareButton } from "@/components/ui/ShareButton"
 import { IconArrowLeft } from "@tabler/icons-react"
 import Link from "next/link"
@@ -86,14 +85,9 @@ export default async function NotaSettingsPage({ params }: Props) {
       />
       {canManage && <AddUserForm id={id} addUserAction={addUserToNota} />}
       {isOwner && (
-        <form
-          action={deleteNota.bind(null, id)}
-          className="mt-8 pt-6 border-t border-black/10"
-        >
-          <Button variant="danger" type="submit">
-            Eliminar nota
-          </Button>
-        </form>
+        <div className="mt-8 pt-6 border-t border-black/10">
+          <DeleteNotaButton notaId={id} />
+        </div>
       )}
     </div>
   )

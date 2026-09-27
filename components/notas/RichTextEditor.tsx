@@ -191,7 +191,7 @@ export function RichTextEditor({
     editorProps: {
       attributes: {
         class: clsx(
-          "richtext-content px-3 py-2 font-sans text-base focus:outline-none",
+          "richtext-content text-left px-3 py-2 font-sans text-base focus:outline-none",
           contentClassName,
         ),
       },

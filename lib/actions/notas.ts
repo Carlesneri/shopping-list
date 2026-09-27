@@ -140,10 +140,32 @@ export async function deleteNota(notaId: string) {
     "notas",
     notaId,
     email,
-    ["owner"],
+    ["owner", "admin"],
     "eliminar la nota",
   )
 
   await notaRef.delete()
-  redirect("/notas")
+  revalidatePath("/notas")
+}
+
+export async function leaveNota(notaId: string) {
+  const { email } = await requireAuth()
+
+  const { ref, data } = await requireMember("notas", notaId, email)
+
+  const caller = (data.allowedUsers as AllowedUser[]).find(
+    (u) => u.email === email,
+  )
+  if (caller?.role === "owner" || caller?.role === "admin")
+    throw new Error("Sin permisos para abandonar la nota")
+
+  await ref.update({
+    allowedUsers: (data.allowedUsers as AllowedUser[]).filter(
+      (u) => u.email !== email,
+    ),
+    memberEmails: (data.memberEmails as string[]).filter((e) => e !== email),
+    updatedAt: FieldValue.serverTimestamp(),
+  })
+
+  revalidatePath("/notas")
 }

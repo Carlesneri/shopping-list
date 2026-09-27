@@ -7,13 +7,7 @@ import { AddButton } from "@/components/ui/AddButton"
 import { CreateNotaForm } from "@/components/notas/CreateNotaForm"
 import { NotasGrid } from "@/components/notas/NotasGrid"
 
-export function NotesPage({
-  userEmail,
-  userName,
-}: {
-  userEmail: string
-  userName?: string | null
-}) {
+export function NotesPage({ userEmail }: { userEmail: string }) {
   const [isCreating, setIsCreating] = useState(false)
 
   return (
