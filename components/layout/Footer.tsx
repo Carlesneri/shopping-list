@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { IconHeart } from "@tabler/icons-react"
 
 export function Footer() {
@@ -9,7 +10,13 @@ export function Footer() {
         className="inline text-danger fill-danger"
         aria-hidden
       />{" "}
-      por Anna y Joan
+      por Anna y Joan ·{" "}
+      <Link
+        href="/politica-de-privacidad"
+        className="underline underline-offset-2 hover:text-text"
+      >
+        Privacidad
+      </Link>
     </footer>
   )
 }
