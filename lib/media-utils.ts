@@ -1,8 +1,15 @@
-import type { MediaKind } from "./types"
+import type { MediaKind, StorageEntry } from "./types"
 
 /** Single-shot CopyObject and PUT top out at 5 GB in S3/R2. Moving (copy +
  * delete) is rejected above this size. */
 export const MOVE_MAX_SIZE = 5 * 1024 * 1024 * 1024
+
+/** Sorts storage entries for listings: folders first, then by name. Mirrors
+ * the server-side ordering of listMediaStorageEntries. */
+export function compareStorageEntries(a: StorageEntry, b: StorageEntry) {
+  if (a.type !== b.type) return a.type === "folder" ? -1 : 1
+  return a.name.localeCompare(b.name)
+}
 
 /**
  * Detects the media kind from a file name / object key extension. Returns

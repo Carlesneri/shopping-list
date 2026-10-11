@@ -74,6 +74,10 @@ interface MediaFileListItemProps {
   /** An action (play/download/copy/move/delete) is running on this entry. */
   loading?: boolean
   isAdmin: boolean
+  /** Only the owner can delete entries. */
+  isOwner: boolean
+  /** Whether moving entries to another folder is supported (R2 only). */
+  canMove?: boolean
   /** Placeholder row for a file that is currently being uploaded. */
   uploading?: boolean
   /** Whether this item's move panel is open (only one open at a time). */
@@ -98,6 +102,8 @@ export function MediaFileListItem({
   onToggleSelect,
   loading = false,
   isAdmin,
+  isOwner,
+  canMove = true,
   uploading = false,
   moveOpen = false,
   onMoveToggle,
@@ -170,9 +176,10 @@ export function MediaFileListItem({
               mediaKind={entry.mediaKind}
               isFile={isFile}
               isAdmin={isAdmin}
+              isOwner={isOwner}
               loading={loading}
               onPlay={onPlay}
-              onMoveToggle={() => onMoveToggle?.()}
+              onMoveToggle={canMove ? () => onMoveToggle?.() : undefined}
               onDownload={onDownload}
               onCopyUrl={onCopyUrl}
               onDelete={onDelete}
@@ -212,7 +219,7 @@ export function MediaFileListItem({
           </dl>
         </div>
       ) : null}
-      {isAdmin && moveOpen ? (
+      {isAdmin && canMove && moveOpen ? (
         <MoveEntryPanel
           mediaId={mediaId}
           entries={[entry]}

@@ -75,18 +75,20 @@ describe("listMediaStorageEntries", () => {
         type: "file",
         size: 120,
       }),
-      expect.objectContaining({
-        key: "readme.txt",
-        name: "readme.txt",
-        type: "file",
-        size: 42,
-      }),
     ])
   })
 
-  it("returns an empty list if the bucket request fails", async () => {
+  it("hides files that are not video, image or audio", async () => {
+    const entries = await listMediaStorageEntries("media-1")
+
+    expect(entries.some((e) => e.key === "readme.txt")).toBe(false)
+  })
+
+  it("throws a timeout error if the bucket request fails", async () => {
     sendMock.mockRejectedValueOnce(new Error("timeout"))
 
-    await expect(listMediaStorageEntries("media-1")).resolves.toEqual([])
+    await expect(listMediaStorageEntries("media-1")).rejects.toThrow(
+      "Timeout al conectar con el storage",
+    )
   })
 })

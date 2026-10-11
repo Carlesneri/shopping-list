@@ -13,9 +13,7 @@ const state = vi.hoisted(() => ({
 
 vi.mock("@/auth", () => ({
   auth: vi.fn(async () =>
-    state.sessionEmail
-      ? { user: { email: state.sessionEmail } }
-      : null,
+    state.sessionEmail ? { user: { email: state.sessionEmail } } : null,
   ),
 }))
 
@@ -79,6 +77,16 @@ describe("media storage delete authorization", () => {
   })
 
   describe("deleteMediaEntry", () => {
+    it("allows an owner to delete a file", async () => {
+      state.sessionEmail = "owner@example.com"
+
+      await deleteMediaEntry(MEDIA_ID, "videos/clip.mp4")
+
+      expect(sendMock).toHaveBeenCalledWith(
+        expect.objectContaining({ Key: "videos/clip.mp4" }),
+      )
+    })
+
     it("allows an admin to delete a file", async () => {
       state.sessionEmail = "admin@example.com"
 
@@ -92,36 +100,36 @@ describe("media storage delete authorization", () => {
     it("rejects a member with a permissions error", async () => {
       state.sessionEmail = "member@example.com"
 
-      await expect(deleteMediaEntry(MEDIA_ID, "videos/clip.mp4")).rejects.toThrow(
-        "Sin permisos",
-      )
+      await expect(
+        deleteMediaEntry(MEDIA_ID, "videos/clip.mp4"),
+      ).rejects.toThrow("Sin permisos")
       expect(sendMock).not.toHaveBeenCalled()
     })
 
     it("rejects an unauthenticated caller", async () => {
       state.sessionEmail = null
 
-      await expect(deleteMediaEntry(MEDIA_ID, "videos/clip.mp4")).rejects.toThrow(
-        "No autenticado",
-      )
+      await expect(
+        deleteMediaEntry(MEDIA_ID, "videos/clip.mp4"),
+      ).rejects.toThrow("No autenticado")
       expect(sendMock).not.toHaveBeenCalled()
     })
 
     it("rejects a caller who is not in allowedUsers", async () => {
       state.sessionEmail = "intruder@example.com"
 
-      await expect(deleteMediaEntry(MEDIA_ID, "videos/clip.mp4")).rejects.toThrow(
-        "Sin permisos",
-      )
+      await expect(
+        deleteMediaEntry(MEDIA_ID, "videos/clip.mp4"),
+      ).rejects.toThrow("Sin permisos")
       expect(sendMock).not.toHaveBeenCalled()
     })
   })
 
   describe("deleteMediaFolder", () => {
-    it("allows an admin to delete a folder and its objects", async () => {
-      state.sessionEmail = "admin@example.com"
+    it("allows an owner to delete an empty folder with only its marker", async () => {
+      state.sessionEmail = "owner@example.com"
       sendMock.mockResolvedValueOnce({
-        Contents: [{ Key: "videos/clip.mp4" }, { Key: "videos/other.mp4" }],
+        Contents: [{ Key: "videos/" }],
       })
 
       await deleteMediaFolder(MEDIA_ID, "videos/")
@@ -130,7 +138,55 @@ describe("media storage delete authorization", () => {
         .map((call) => call[0])
         .filter((cmd) => cmd.Key !== undefined)
         .map((cmd) => cmd.Key)
-      expect(deleteKeys).toEqual(["videos/clip.mp4", "videos/other.mp4"])
+      expect(deleteKeys).toEqual(["videos/"])
+    })
+
+    it("allows deleting a folder with no objects at all", async () => {
+      state.sessionEmail = "owner@example.com"
+      sendMock.mockResolvedValueOnce({ Contents: [] })
+
+      await deleteMediaFolder(MEDIA_ID, "videos/")
+
+      expect(
+        sendMock.mock.calls.some((call) => call[0].Key !== undefined),
+      ).toBe(false)
+    })
+
+    it("refuses to delete a folder that still has objects", async () => {
+      state.sessionEmail = "owner@example.com"
+      sendMock.mockResolvedValueOnce({
+        Contents: [{ Key: "videos/clip.mp4" }, { Key: "videos/other.mp4" }],
+      })
+
+      await expect(deleteMediaFolder(MEDIA_ID, "videos/")).rejects.toThrow(
+        "no está vacía",
+      )
+      expect(
+        sendMock.mock.calls.some((call) => call[0].Key !== undefined),
+      ).toBe(false)
+    })
+
+    it("refuses when the single object is not the folder marker", async () => {
+      state.sessionEmail = "owner@example.com"
+      sendMock.mockResolvedValueOnce({
+        Contents: [{ Key: "videos/clip.mp4" }],
+      })
+
+      await expect(deleteMediaFolder(MEDIA_ID, "videos/")).rejects.toThrow(
+        "no está vacía",
+      )
+      expect(
+        sendMock.mock.calls.some((call) => call[0].Key !== undefined),
+      ).toBe(false)
+    })
+
+    it("rejects an admin with a permissions error", async () => {
+      state.sessionEmail = "admin@example.com"
+
+      await expect(deleteMediaFolder(MEDIA_ID, "videos/")).rejects.toThrow(
+        "Sin permisos",
+      )
+      expect(sendMock).not.toHaveBeenCalled()
     })
 
     it("rejects a member with a permissions error", async () => {

@@ -12,13 +12,21 @@ export function MediaCard({ media }: { media: MediaStorage }) {
         <ShareButton path={`/media/${media.id}`} variant="plain" />
       </div>
 
-      <Link href={`/media/${media.id}`} prefetch={false} className="block min-w-0 pr-12">
+      <Link
+        href={`/media/${media.id}`}
+        prefetch={false}
+        className="block min-w-0 pr-12"
+      >
         <h2 className="font-bold text-lg leading-tight">{title}</h2>
         <div className="flex items-center gap-1.5 text-text/60 text-sm mt-0.5">
           <IconCloud size={14} />
           <span>{PROVIDER_LABELS[media.provider] ?? media.provider}</span>
           <span className="text-text/40">·</span>
-          <span className="truncate">{media.config?.bucket ?? ""}</span>
+          <span className="truncate">
+            {media.config && "bucket" in media.config
+              ? media.config.bucket
+              : ""}
+          </span>
         </div>
         <div className="flex items-center gap-1 text-text/60 text-sm mt-1">
           <IconUsers size={14} />

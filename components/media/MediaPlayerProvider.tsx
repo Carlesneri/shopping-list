@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react"
-import { MediaPlayer } from "./MediaPlayer"
+import { MediaPlayer, type PlayerGallery } from "./MediaPlayer"
 import type { MediaKind } from "@/lib/types"
 
 interface PlayingState {
@@ -15,6 +15,8 @@ interface PlayingState {
   title: string
   kind: MediaKind
   storageKey: string
+  /** Present for images: the folder's images so the player can navigate. */
+  gallery?: PlayerGallery
 }
 
 interface PlayerContextValue {
@@ -57,6 +59,7 @@ export function MediaPlayerProvider({ children }: { children: ReactNode }) {
           title={playing.title}
           kind={playing.kind}
           storageKey={playing.storageKey}
+          gallery={playing.gallery}
           onClose={closePlayer}
         />
       ) : null}

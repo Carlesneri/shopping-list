@@ -45,11 +45,12 @@ export interface Nota {
   updatedAt: { seconds: number; nanoseconds: number }
 }
 
-export const STORAGE_PROVIDERS = ["cloudflare-r2"] as const
+export const STORAGE_PROVIDERS = ["cloudflare-r2", "google-drive"] as const
 export type StorageProvider = (typeof STORAGE_PROVIDERS)[number]
 
 export const PROVIDER_LABELS: Record<StorageProvider, string> = {
   "cloudflare-r2": "Cloudflare R2",
+  "google-drive": "Google Drive",
 }
 
 /** Cloudflare R2 configuration as stored in Firestore. `secretEnc` holds the
@@ -62,13 +63,23 @@ export interface R2Config {
   S3APIendpoint?: string
 }
 
+/** Google Drive configuration as stored in Firestore. `refreshTokenEnc` holds
+ * the OAuth refresh token ("iv:tag:ciphertext", base64); empty until the user
+ * completes the Drive consent flow. */
+export interface DriveConfig {
+  refreshTokenEnc: string
+  connectedEmail?: string
+}
+
+export type MediaStorageConfig = R2Config | DriveConfig
+
 export interface MediaStorage {
   id: string
   title: string
   provider: StorageProvider
   allowedUsers: AllowedUser[]
   memberEmails: string[]
-  config: R2Config
+  config: MediaStorageConfig
   createdAt: { seconds: number; nanoseconds: number }
   updatedAt: { seconds: number; nanoseconds: number }
 }

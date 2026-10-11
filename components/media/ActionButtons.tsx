@@ -16,9 +16,12 @@ interface Props {
   mediaKind?: MediaKind
   isFile: boolean
   isAdmin: boolean
+  /** Folder delete is owner-only; file delete is owner or admin. */
+  isOwner: boolean
   loading?: boolean
   onPlay: () => void
-  onMoveToggle: () => void
+  /** Omitted when moving entries is not supported for this storage. */
+  onMoveToggle?: () => void
   onDownload: () => void
   onCopyUrl: () => void
   onDelete: () => void
@@ -29,6 +32,7 @@ export function ActionButtons({
   mediaKind,
   isFile,
   isAdmin,
+  isOwner,
   loading = false,
   onPlay,
   onMoveToggle,
@@ -95,7 +99,7 @@ export function ActionButtons({
           <IconLink size={20} />
         </button>
       ) : null}
-      {isAdmin ? (
+      {isAdmin && onMoveToggle ? (
         <button
           type="button"
           onClick={onMoveToggle}
@@ -107,7 +111,7 @@ export function ActionButtons({
           <IconFolderUp size={20} />
         </button>
       ) : null}
-      {isFile && isAdmin ? (
+      {isFile && (isOwner || isAdmin) ? (
         <button
           type="button"
           onClick={onDelete}
@@ -119,7 +123,7 @@ export function ActionButtons({
           <IconTrash size={20} />
         </button>
       ) : null}
-      {!isFile && isAdmin ? (
+      {!isFile && isOwner ? (
         <button
           type="button"
           onClick={onDelete}

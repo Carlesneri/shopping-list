@@ -1,7 +1,6 @@
 "use client"
 
-import { useRef, useState, useTransition } from "react"
-import { useRouter } from "next/navigation"
+import { useRef, useState } from "react"
 import { toast } from "sonner"
 import { IconLoader2, IconUpload } from "@tabler/icons-react"
 import { getMediaUploadUrl, uploadMediaEntries } from "@/lib/actions/media"
@@ -42,14 +41,14 @@ export function UploadButton({
   color?: Color
   /** Notifies the list so the uploading file shows as a disabled row. */
   onUploadStart?: (entry: StorageEntry) => void
-  onUploadEnd?: (key: string) => void
+  /** Removes the placeholder row; on success passes the committed entry so
+   * the list updates locally, without refetching the whole page. */
+  onUploadEnd?: (key: string, entry?: StorageEntry) => void
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
-  const router = useRouter()
-  const [isPending, startTransition] = useTransition()
   const [uploading, setUploading] = useState(false)
 
-  const busy = uploading || isPending
+  const busy = uploading
 
   async function uploadFile(file: File) {
     const key = `${prefix}${file.name}`
@@ -61,11 +60,17 @@ export function UploadButton({
       return
     }
 
-    const { url } = await getMediaUploadUrl(mediaId, key, file.size)
+    const contentType = file.type || "application/octet-stream"
+    const { url } = await getMediaUploadUrl(
+      mediaId,
+      key,
+      file.size,
+      contentType,
+    )
     const response = await fetch(url, {
       method: "PUT",
       body: file,
-      headers: file.type ? { "Content-Type": file.type } : undefined,
+      headers: { "Content-Type": contentType },
     })
     if (!response.ok) {
       throw new Error(`Error al subir ${file.name} (${response.status})`)
@@ -73,7 +78,7 @@ export function UploadButton({
   }
 
   // Wraps an upload so the file shows up in the list as a disabled row with
-  // a spinner until it finishes (then the refresh swaps in the real entry).
+  // a spinner until it finishes (then it is committed as a real row).
   async function uploadFileWithIndicator(file: File) {
     const placeholderKey = `uploading:${Date.now()}:${Math.random()}:${file.name}`
     onUploadStart?.({
@@ -85,8 +90,16 @@ export function UploadButton({
     })
     try {
       await uploadFile(file)
-    } finally {
+      onUploadEnd?.(placeholderKey, {
+        key: `${prefix}${file.name}`,
+        name: file.name,
+        type: "file",
+        mediaKind: detectMediaKind(file.name),
+        size: file.size,
+      })
+    } catch (error) {
       onUploadEnd?.(placeholderKey)
+      throw error
     }
   }
 
@@ -146,9 +159,6 @@ export function UploadButton({
               ? "No se pudieron subir los archivos"
               : `No se pudieron subir ${failures.length} de ${list.length} archivos`,
           )
-        }
-        if (failures.length < list.length) {
-          startTransition(() => router.refresh())
         }
       })
       .finally(() => {

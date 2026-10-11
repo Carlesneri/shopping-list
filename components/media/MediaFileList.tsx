@@ -4,8 +4,8 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { IconChevronRight, IconSearch, IconX } from "@tabler/icons-react"
-import type { StorageEntry } from "@/lib/types"
-import { MOVE_MAX_SIZE } from "@/lib/media-utils"
+import type { StorageEntry, StorageProvider } from "@/lib/types"
+import { compareStorageEntries, MOVE_MAX_SIZE } from "@/lib/media-utils"
 import {
   createMediaFolder,
   deleteMediaEntry,
@@ -15,6 +15,7 @@ import {
   moveMediaEntry,
 } from "@/lib/actions/media"
 import { MediaFileListItem } from "./MediaFileListItem"
+import type { PlayerGallery } from "./MediaPlayer"
 import { useMediaPlayer } from "./MediaPlayerProvider"
 import { Loader } from "@/components/ui/Loader"
 
@@ -34,20 +35,27 @@ export function MediaFileList({
   mediaId,
   entries: initialEntries,
   isAdmin,
+  isOwner,
+  provider,
   initialError,
   currentPath,
   onPathChange,
   uploadingEntries = [],
+  onCommitReady,
 }: {
   mediaId: string
   entries: StorageEntry[]
   isAdmin: boolean
+  isOwner: boolean
+  provider: StorageProvider
   initialError?: string | null
   /** Folder currently being browsed (e.g. "videos/"); "" for the root. */
   currentPath: string
   onPathChange: (path: string) => void
   /** Placeholder rows for files currently being uploaded. */
   uploadingEntries?: StorageEntry[]
+  /** Registers the local commit for uploaded files (owned by the list). */
+  onCommitReady?: (commit: (entry: StorageEntry) => void) => void
 }) {
   const router = useRouter()
   const { openPlayer } = useMediaPlayer()
@@ -62,6 +70,8 @@ export function MediaFileList({
   const [search, setSearch] = useState("")
 
   const breadcrumbs = parseBreadcrumbs(currentPath)
+  // Drive's move/copy action is not supported, so the move option is hidden.
+  const canMove = provider !== "google-drive"
 
   useEffect(() => {
     if (initialError) {
@@ -72,8 +82,10 @@ export function MediaFileList({
   // One source of truth per situation:
   // - Root: mirror the server snapshot. Server actions revalidate the page,
   //   so their responses deliver fresh data — swap it in, no request needed.
-  // - Folder: always fetch when the folder changes, and show the loader
-  //   until it arrives. The reset is unconditional so nothing can get stuck.
+  //   Deletes and uploads also update the list locally, so neither refetches
+  //   the whole page.
+  // - Folder: always fetch when the folder changes, and show the loader until
+  //   it arrives. The reset is unconditional so nothing can get stuck.
   useEffect(() => {
     if (!currentPath) {
       setLoadingEntries(false)
@@ -101,6 +113,23 @@ export function MediaFileList({
     }
   }, [mediaId, currentPath])
 
+  // Keys of files committed locally after an upload, so the "new files"
+  // poller does not mistake them for uploads made by someone else.
+  const uploadedKeysRef = useRef<Set<string>>(new Set())
+
+  function commitUploadedEntry(entry: StorageEntry) {
+    uploadedKeysRef.current.add(entry.key)
+    setEntries((prev) =>
+      prev.some((e) => e.key === entry.key)
+        ? prev
+        : [...prev, entry].sort(compareStorageEntries),
+    )
+  }
+
+  useEffect(() => {
+    onCommitReady?.(commitUploadedEntry)
+  })
+
   function navigateToFolder(path: string) {
     setSelectedKey(null)
     // A move panel for another folder is meaningless after navigating.
@@ -125,7 +154,10 @@ export function MediaFileList({
 
     try {
       const freshEntries = await listMediaStorageEntries(mediaId)
-      const currentKeys = new Set(initialEntries.map((e) => e.key))
+      const currentKeys = new Set([
+        ...initialEntries.map((e) => e.key),
+        ...uploadedKeysRef.current,
+      ])
       const newItems = freshEntries.filter((e) => !currentKeys.has(e.key))
       if (newItems.length > 0 && !hasNotified.current) {
         hasNotified.current = true
@@ -159,7 +191,11 @@ export function MediaFileList({
       await run()
     } catch (error) {
       console.error(`[media:${action}] failed for ${entry.key}`, error)
-      toast.error("No se pudo completar la acción")
+      toast.error(
+        error instanceof Error && error.message
+          ? error.message
+          : "No se pudo completar la acción",
+      )
     } finally {
       setLoadingActions((prev) => {
         const next = { ...prev }
@@ -171,7 +207,10 @@ export function MediaFileList({
 
   function handleCopyUrl(entry: StorageEntry) {
     return runEntryAction(entry, "copy", async () => {
-      const url = await getMediaEntryUrl(mediaId, entry.key)
+      const url = new URL(
+        await getMediaEntryUrl(mediaId, entry.key),
+        window.location.origin,
+      ).href
       await navigator.clipboard.writeText(url)
       toast.success("URL copiada al portapapeles")
     })
@@ -204,6 +243,18 @@ export function MediaFileList({
     return runEntryAction(entry, "play", async () => {
       // Direct presigned R2 URL; requires GET CORS rule on the bucket.
       const src = await getMediaEntryUrl(mediaId, entry.key)
+      // Images open as a gallery of the folder's images so the player can
+      // navigate between them without re-opening from the list.
+      let gallery: PlayerGallery | undefined
+      if (kind === "image") {
+        const images = filteredEntries
+          .filter((e) => e.type === "file" && e.mediaKind === "image")
+          .map((e) => ({ key: e.key, name: e.name }))
+        const index = images.findIndex((image) => image.key === entry.key)
+        if (index >= 0 && images.length > 1) {
+          gallery = { mediaId, images, index }
+        }
+      }
       openPlayer({
         src,
         title: entry.name,
@@ -211,6 +262,7 @@ export function MediaFileList({
         // Stable id (the presigned URL changes every time) so the player
         // can remember/restore the playback position.
         storageKey: `${mediaId}:${entry.key}`,
+        gallery,
       })
     })
   }
@@ -329,14 +381,15 @@ export function MediaFileList({
         ) : null}
       </div>
       <ul className="flex flex-col gap-2">
-        {uploadingEntries.map((entry) => (
+        {uploadingEntries.map((entry, index) => (
           <MediaFileListItem
-            key={entry.key}
+            key={`${entry.key}:${index}`}
             mediaId={mediaId}
             entry={entry}
             isSelected={false}
             onToggleSelect={() => {}}
             isAdmin={false}
+            isOwner={false}
             uploading
             onPlay={() => {}}
             onDownload={() => {}}
@@ -349,9 +402,11 @@ export function MediaFileList({
         <Loader size={48} label="Cargando…" className="py-6" />
       ) : (
         <ul className="flex flex-col gap-2">
-          {filteredEntries.map((entry) => (
+          {filteredEntries.map((entry, index) => (
             <MediaFileListItem
-              key={entry.key}
+              // Drive can return files with the same name in one folder, so
+              // the key must not rely on entry.key alone.
+              key={`${entry.key}:${index}`}
               mediaId={mediaId}
               entry={entry}
               isSelected={entry.key === selectedKey}
@@ -360,6 +415,8 @@ export function MediaFileList({
               }
               loading={Boolean(loadingActions[entry.key])}
               isAdmin={isAdmin}
+              isOwner={isOwner}
+              canMove={canMove}
               moveOpen={moveKey === entry.key}
               onMoveToggle={() =>
                 setMoveKey(moveKey === entry.key ? null : entry.key)

@@ -42,6 +42,13 @@ export function validateMediaInput(
   if (!STORAGE_PROVIDERS.includes(provider as StorageProvider)) {
     throw new Error("Proveedor no soportado")
   }
+
+  // Google Drive uses OAuth consent instead of static credentials, so the
+  // R2 fields are only required for the R2 provider.
+  if (provider === "google-drive") {
+    return { title: trimmedTitle, provider: "google-drive" as const }
+  }
+
   const trimmedAccountId = accountId.trim()
   if (!trimmedAccountId) throw new Error("El account ID es requerido")
   if (trimmedAccountId.length > MAX_STRING)
@@ -64,7 +71,7 @@ export function validateMediaInput(
     throw new Error(`El bucket no puede superar ${MAX_STRING} caracteres`)
   return {
     title: trimmedTitle,
-    provider: provider as StorageProvider,
+    provider: "cloudflare-r2" as const,
     accountId: trimmedAccountId,
     accessKeyId: trimmedAccessKeyId,
     secretAccessKey: trimmedSecret,

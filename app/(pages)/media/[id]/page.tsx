@@ -8,6 +8,7 @@ import { MediaFilesSection } from "@/components/media/MediaFilesSection"
 import { MediaPlayerProvider } from "@/components/media/MediaPlayerProvider"
 import { Loader } from "@/components/ui/Loader"
 import { ScrollToTop } from "@/components/ui/ScrollToTop"
+import { DriveErrorToast } from "@/components/media/DriveErrorToast"
 import { listMediaStorageEntries } from "@/lib/actions/media"
 import type { MediaStorage } from "@/lib/types"
 
@@ -15,6 +16,7 @@ import type { AllowedUser, StorageEntry } from "@/lib/types"
 
 interface Props {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ drive_error?: string }>
 }
 
 /** Loads the doc but strips the encrypted secret — it never reaches the client. */
@@ -26,19 +28,30 @@ const getMediaStorage = cache(
     const data = snap.data()
     if (!data) return null
 
-    const config = data.config ?? {}
+    const rawConfig = data.config ?? {}
+    const provider = data.provider ?? "cloudflare-r2"
+    // Drive configs only expose the connection status — the refresh token
+    // never leaves the server.
+    const config =
+      provider === "google-drive"
+        ? {
+            refreshTokenEnc: "",
+            connectedEmail: rawConfig.connectedEmail,
+          }
+        : {
+            accountId: rawConfig.accountId ?? "",
+            accessKeyId: rawConfig.accessKeyId ?? "",
+            bucket: rawConfig.bucket ?? "",
+            secretEnc: "",
+          }
+
     return {
       id: snap.id,
       title: data.title ?? "",
-      provider: data.provider ?? "cloudflare-r2",
+      provider,
       allowedUsers: data.allowedUsers,
       memberEmails: data.memberEmails,
-      config: {
-        accountId: config.accountId ?? "",
-        accessKeyId: config.accessKeyId ?? "",
-        bucket: config.bucket ?? "",
-        secretEnc: "",
-      },
+      config,
       createdAt: {
         seconds: data.createdAt?.seconds ?? 0,
         nanoseconds: data.createdAt?.nanoseconds ?? 0,
@@ -66,10 +79,12 @@ async function MediaEntries({
   id,
   userEmail,
   allowedUsers,
+  provider,
 }: {
   id: string
   userEmail: string
   allowedUsers: AllowedUser[]
+  provider: MediaStorage["provider"]
 }) {
   let entries: StorageEntry[] = []
   let loadError: string | null = null
@@ -85,19 +100,26 @@ async function MediaEntries({
 
   const userEntry = allowedUsers.find((u) => u.email === userEmail)
   const isAdmin = userEntry?.role === "owner" || userEntry?.role === "admin"
+  const isOwner = userEntry?.role === "owner"
 
   return (
     <MediaFilesSection
       mediaId={id}
+      provider={provider}
       isAdmin={isAdmin}
+      isOwner={isOwner}
       entries={entries}
       initialError={loadError}
     />
   )
 }
 
-export default async function MediaStoragePage({ params }: Props) {
+export default async function MediaStoragePage({
+  params,
+  searchParams,
+}: Props) {
   const { id } = await params
+  const { drive_error: driveError } = await searchParams
   const session = await auth()
   if (!session?.user?.email) redirect("/")
 
@@ -106,6 +128,7 @@ export default async function MediaStoragePage({ params }: Props) {
 
   return (
     <MediaPlayerProvider>
+      <DriveErrorToast message={driveError} />
       <div className="flex flex-col px-4 py-6 max-w-lg mx-auto w-full">
         <MediaDetail media={media} userEmail={session.user.email} />
 
@@ -119,6 +142,7 @@ export default async function MediaStoragePage({ params }: Props) {
               id={id}
               userEmail={session.user.email}
               allowedUsers={media.allowedUsers}
+              provider={media.provider}
             />
           </div>
         </Suspense>

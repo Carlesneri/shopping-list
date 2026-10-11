@@ -1,8 +1,15 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { IconAlertCircle, IconLoader2, IconX } from "@tabler/icons-react"
+import {
+  IconAlertCircle,
+  IconChevronLeft,
+  IconChevronRight,
+  IconLoader2,
+  IconX,
+} from "@tabler/icons-react"
 import { toast } from "sonner"
+import { getMediaEntryUrl } from "@/lib/actions/media"
 import type { MediaKind } from "@/lib/types"
 
 // Remembered playback positions: keyed by a stable media id (the presigned
@@ -43,18 +50,59 @@ export interface SubtitleOption {
   src: string
 }
 
+/** Images of the current folder, so the image view can browse prev/next. */
+export interface PlayerGallery {
+  mediaId: string
+  images: { key: string; name: string }[]
+  index: number
+}
+
 interface Props {
   src: string
   title: string
   kind: MediaKind
   /** Stable identifier (e.g. `${mediaId}:${entryKey}`) used to remember the playback position. */
   storageKey?: string
+  gallery?: PlayerGallery
   onClose: () => void
 }
 
-export function MediaPlayer({ src, title, kind, storageKey, onClose }: Props) {
+interface GalleryNav {
+  index: number
+  src: string
+  title: string
+  loading: boolean
+}
+
+export function MediaPlayer({
+  src,
+  title,
+  kind,
+  storageKey,
+  gallery,
+  onClose,
+}: Props) {
   const [playerReady, setPlayerReady] = useState(false)
   const [corsBlocked, setCorsBlocked] = useState(false)
+  // Images pop in only after the full file is fetched; until then the modal
+  // would be an empty black box, so track the load explicitly.
+  const [imageState, setImageState] = useState<"loading" | "ready" | "error">(
+    "loading",
+  )
+  // Gallery navigation (images only): the URL of each neighbor is resolved on
+  // demand so no other image is fetched until the user moves to it.
+  const [nav, setNav] = useState<GalleryNav | null>(() =>
+    gallery ? { index: gallery.index, src, title, loading: false } : null,
+  )
+  const displaySrc = nav ? nav.src : src
+  const displayTitle = nav ? nav.title : title
+  // Reopening the player with a different file must not show the old image:
+  // reset the load state when the source changes (React's render-time reset).
+  const [imageSrc, setImageSrc] = useState(displaySrc)
+  if (imageSrc !== displaySrc) {
+    setImageSrc(displaySrc)
+    setImageState("loading")
+  }
   const playerRef = useRef<HTMLElement>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
   const videoContainerRef = useRef<HTMLDivElement>(null)
@@ -132,13 +180,44 @@ export function MediaPlayer({ src, title, kind, storageKey, onClose }: Props) {
     }
   }, [])
 
+  const canNavigate = !!gallery && gallery.images.length > 1
+
+  const navigate = useCallback(
+    async (delta: number) => {
+      if (!gallery || !nav || nav.loading) return
+      const count = gallery.images.length
+      const index = (nav.index + delta + count) % count
+      const target = gallery.images[index]
+      // Keep the current image visible (dimmed) while the URL is resolved.
+      setNav({ index, src: nav.src, title: target.name, loading: true })
+      try {
+        const url = await getMediaEntryUrl(gallery.mediaId, target.key)
+        setNav((prev) =>
+          prev && prev.index === index
+            ? { ...prev, src: url, loading: false }
+            : prev,
+        )
+      } catch (error) {
+        console.error("[media:gallery] failed to load image", error)
+        toast.error("No se pudo cargar la imagen")
+        setNav((prev) =>
+          prev && prev.index === index ? { ...prev, loading: false } : prev,
+        )
+      }
+    },
+    [gallery, nav],
+  )
+
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") onClose()
+      if (!canNavigate) return
+      if (event.key === "ArrowLeft") void navigate(-1)
+      if (event.key === "ArrowRight") void navigate(1)
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [onClose])
+  }, [onClose, canNavigate, navigate])
 
   // Track the movi-player position: update the ref on every timeupdate,
   // persist on pause (and throttled while playing), clear on end.
@@ -262,7 +341,7 @@ export function MediaPlayer({ src, title, kind, storageKey, onClose }: Props) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
       role="dialog"
       aria-modal="true"
-      aria-label={title}
+      aria-label={displayTitle}
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose()
       }}
@@ -273,7 +352,7 @@ export function MediaPlayer({ src, title, kind, storageKey, onClose }: Props) {
       <div className="w-full max-w-3xl overflow-hidden rounded-xl border-2 border-black/20 bg-black">
         <div className="flex items-center justify-between gap-3 px-4 py-3">
           <p className="min-w-0 truncate text-sm font-medium text-white">
-            {title}
+            {displayTitle}
           </p>
           <button
             type="button"
@@ -285,13 +364,75 @@ export function MediaPlayer({ src, title, kind, storageKey, onClose }: Props) {
           </button>
         </div>
         {kind === "image" ? (
-          <div className="flex max-h-[75vh] items-center justify-center bg-black p-2">
+          <div className="relative flex max-h-[75vh] min-h-48 items-center justify-center bg-black p-2">
+            {imageState !== "ready" ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                {imageState === "loading" ? (
+                  <>
+                    <IconLoader2
+                      size={36}
+                      className="animate-spin text-white/60"
+                      aria-label="Cargando"
+                    />
+                    <span className="sr-only">Cargando imagen</span>
+                  </>
+                ) : (
+                  <>
+                    <IconAlertCircle size={28} className="text-amber-400" />
+                    <p className="text-sm text-white/70">
+                      No se pudo cargar la imagen
+                    </p>
+                  </>
+                )}
+              </div>
+            ) : null}
             {/* biome-ignore lint/a11y/useAltText: title is rendered in the modal header */}
             {/* biome-ignore lint/performance/noImgElement: presigned R2 image, next/image can't fetch cross-origin */}
             <img
-              src={src}
-              className="max-h-[75vh] w-auto max-w-full object-contain"
+              src={displaySrc}
+              onLoad={() => setImageState("ready")}
+              onError={() => setImageState("error")}
+              className={`max-h-[75vh] w-auto max-w-full object-contain transition-opacity ${
+                imageState === "ready" ? "opacity-100" : "opacity-0"
+              }`}
             />
+            {canNavigate && gallery ? (
+              <>
+                {nav?.loading ? (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50">
+                    <IconLoader2
+                      size={36}
+                      className="animate-spin text-white/60"
+                      aria-label="Cargando"
+                    />
+                  </div>
+                ) : null}
+                <span className="absolute right-2 top-2 z-10 rounded-full bg-black/60 px-2 py-0.5 text-xs font-medium text-white/80">
+                  {nav ? nav.index + 1 : gallery.index + 1} /{" "}
+                  {gallery.images.length}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void navigate(-1)}
+                  disabled={Boolean(nav?.loading)}
+                  title="Imagen anterior (←)"
+                  aria-label="Imagen anterior"
+                  className="absolute left-2 top-1/2 z-10 -translate-y-1/2 cursor-pointer rounded-full bg-black/60 p-2 text-white/80 transition-colors hover:bg-black/80 hover:text-white disabled:cursor-wait disabled:opacity-50"
+                >
+                  <IconChevronLeft size={22} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void navigate(1)}
+                  disabled={Boolean(nav?.loading)}
+                  title="Imagen siguiente (→)"
+                  aria-label="Imagen siguiente"
+                  className="absolute right-2 top-1/2 z-10 -translate-y-1/2 cursor-pointer rounded-full bg-black/60 p-2 text-white/80 transition-colors hover:bg-black/80 hover:text-white disabled:cursor-wait disabled:opacity-50"
+                >
+                  <IconChevronRight size={22} />
+                </button>
+              </>
+            ) : null}
           </div>
         ) : kind === "audio" ? (
           <div className="flex items-center justify-center bg-black px-4 py-8">

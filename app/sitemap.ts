@@ -29,5 +29,17 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.8,
       lastModified: new Date(),
     },
+    {
+      url: `${baseUrl}/drive`,
+      changeFrequency: "monthly",
+      priority: 0.9,
+      lastModified: new Date(),
+    },
+    {
+      url: `${baseUrl}/politica-de-privacidad`,
+      changeFrequency: "yearly",
+      priority: 0.3,
+      lastModified: new Date(),
+    },
   ]
 }

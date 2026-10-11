@@ -3,6 +3,7 @@ import { auth } from "@/auth"
 import { IconDeviceTv, IconFolder, IconShieldLock } from "@tabler/icons-react"
 import { SectionLanding } from "@/components/landing/SectionLanding"
 import type { SectionLandingConfig } from "@/components/landing/SectionLanding"
+import { DriveErrorToast } from "@/components/media/DriveErrorToast"
 import { MediaPage } from "@/components/media/MediaPage"
 import { ScrollToTop } from "@/components/ui/ScrollToTop"
 
@@ -60,14 +61,25 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-export default async function MediaListPage() {
+export default async function MediaListPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ drive_error?: string }>
+}) {
+  const { drive_error: driveError } = await searchParams
   const session = await auth()
   if (!session?.user?.email) {
-    return <SectionLanding config={landingConfig} redirectTo="/media" />
+    return (
+      <>
+        <DriveErrorToast message={driveError} />
+        <SectionLanding config={landingConfig} redirectTo="/media" />
+      </>
+    )
   }
 
   return (
     <>
+      <DriveErrorToast message={driveError} />
       <MediaPage userEmail={session.user.email} />
       <ScrollToTop color="blue" />
     </>

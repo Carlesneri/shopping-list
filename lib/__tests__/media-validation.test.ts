@@ -43,6 +43,12 @@ describe("validateMediaInput", () => {
     )
   })
 
+  it("accepts google-drive without R2 credentials", () => {
+    expect(
+      validateMediaInput(" Drive ", "google-drive", "", "", "", ""),
+    ).toEqual({ title: "Drive", provider: "google-drive" })
+  })
+
   it("throws when accountId is empty", () => {
     expect(() =>
       validateMediaInput("T", "cloudflare-r2", "  ", "k", "s", "b"),

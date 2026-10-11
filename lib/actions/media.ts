@@ -1,6 +1,7 @@
 "use server"
 
 import { redirect } from "next/navigation"
+import { headers } from "next/headers"
 import { FieldValue } from "firebase-admin/firestore"
 import { revalidatePath } from "next/cache"
 import {
@@ -22,7 +23,29 @@ import {
   requireCallerRole,
   requireMember,
 } from "@/lib/auth-helpers"
-import type { AllowedUser, Role, StorageEntry } from "@/lib/types"
+import type {
+  AllowedUser,
+  DriveConfig,
+  Role,
+  StorageEntry,
+  StorageProvider,
+} from "@/lib/types"
+import {
+  DRIVE_CALLBACK_PATH,
+  DRIVE_NOT_CONNECTED_MESSAGE,
+  buildDriveConsentUrl,
+  createDriveState,
+  deleteDriveFile,
+  deleteDriveFolder,
+  exchangeDriveAuthCode,
+  invalidateDriveFileId,
+  listDriveEntries,
+  refreshDriveAccessToken,
+  resolveDriveUploadParent,
+  startDriveResumableUpload,
+  uploadDriveFile,
+  verifyDriveState,
+} from "@/lib/drive"
 
 /**
  * Validates a storage object key. Blocks path traversal segments ("." / "..")
@@ -107,37 +130,193 @@ function normalizeR2Endpoint(value: string | undefined, accountId: string) {
   return `https://${lowerHost}`
 }
 
+/** Reads the provider of a media doc (defaulting to R2 for legacy docs). */
+function docProvider(data: Record<string, unknown>): StorageProvider {
+  return (data.provider as StorageProvider | undefined) ?? "cloudflare-r2"
+}
+
+async function requestOrigin() {
+  const headerList = await headers()
+  const origin = headerList.get("origin")
+  if (origin) return origin.replace(/\/$/, "")
+
+  const host = headerList.get("x-forwarded-host") ?? headerList.get("host")
+  if (!host) {
+    const fallback = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "")
+    if (fallback) return fallback
+    throw new Error("No se pudo determinar la URL de la aplicación")
+  }
+
+  const forwardedProto = headerList.get("x-forwarded-proto")?.split(",")[0]
+  const proto =
+    forwardedProto?.trim() ||
+    (host.startsWith("localhost") || host.startsWith("127.0.0.1")
+      ? "http"
+      : "https")
+  return `${proto}://${host}`
+}
+
+function driveErrorPath(mediaId: string | null, message: string) {
+  const path = mediaId ? `/media/${mediaId}` : "/media"
+  return `${path}?drive_error=${encodeURIComponent(message.slice(0, 300))}`
+}
+
+/** Builds the Google consent URL for connecting a Drive storage. */
+async function buildDriveConnectUrl(mediaId: string, email: string) {
+  const redirectUri = `${await requestOrigin()}${DRIVE_CALLBACK_PATH}`
+  return buildDriveConsentUrl(
+    redirectUri,
+    createDriveState(mediaId, email, redirectUri),
+  )
+}
+
+/** Starts (or restarts) the Google Drive consent flow for an existing
+ * storage. Google redirects back to the callback page, which submits
+ * `completeDriveConnect`. */
+export async function startDriveConnect(mediaId: string) {
+  const { email } = await requireAuth()
+
+  await requireCallerRole(
+    "media",
+    mediaId,
+    email,
+    ["owner", "admin"],
+    "conectar Google Drive",
+  )
+
+  redirect(await buildDriveConnectUrl(mediaId, email))
+}
+
+/** Finishes the Drive consent flow started by `startDriveConnect`. The
+ * callback page submits this action with the code and signed state Google
+ * returned. */
+export async function completeDriveConnect(formData: FormData) {
+  const code = String(formData.get("code") ?? "")
+  const state = String(formData.get("state") ?? "")
+  const oauthError = String(formData.get("error") ?? "")
+
+  if (code.length > 2048 || state.length > 4096) {
+    redirect(
+      driveErrorPath(null, "Estado de conexión inválido. Vuelve a intentarlo."),
+    )
+  }
+
+  const parsed = state ? verifyDriveState(state) : null
+  let email: string
+  try {
+    email = (await requireAuth()).email
+  } catch {
+    redirect(
+      driveErrorPath(null, "Estado de conexión inválido. Vuelve a intentarlo."),
+    )
+  }
+
+  if (!parsed || parsed.email !== email) {
+    redirect(
+      driveErrorPath(null, "Estado de conexión inválido. Vuelve a intentarlo."),
+    )
+  }
+
+  if (oauthError === "access_denied") {
+    redirect(
+      driveErrorPath(parsed.mediaId, "Has cancelado la conexión con Google"),
+    )
+  }
+  if (oauthError || !code) {
+    redirect(
+      driveErrorPath(parsed.mediaId, "Google no devolvió la autorización"),
+    )
+  }
+
+  let ref: Awaited<ReturnType<typeof requireCallerRole>>["ref"]
+  let data: Record<string, unknown>
+  try {
+    const access = await requireCallerRole(
+      "media",
+      parsed.mediaId,
+      email,
+      ["owner", "admin"],
+      "conectar Google Drive",
+    )
+    ref = access.ref
+    data = access.data
+  } catch {
+    redirect(
+      driveErrorPath(parsed.mediaId, "Sin permisos para conectar Google Drive"),
+    )
+  }
+
+  if (docProvider(data) !== "google-drive") {
+    redirect(driveErrorPath(parsed.mediaId, "Storage no encontrado"))
+  }
+
+  let tokens: { refresh_token?: string }
+  try {
+    tokens = await exchangeDriveAuthCode(code, parsed.redirectUri)
+  } catch (error) {
+    redirect(
+      driveErrorPath(
+        parsed.mediaId,
+        error instanceof Error
+          ? error.message
+          : "No se pudo completar la conexión con Google",
+      ),
+    )
+  }
+
+  if (!tokens.refresh_token) {
+    redirect(
+      driveErrorPath(
+        parsed.mediaId,
+        "Google no devolvió un refresh token. Revoca el acceso de la app en tu cuenta de Google y vuelve a conectarlo.",
+      ),
+    )
+  }
+
+  await ref.update({
+    "config.refreshTokenEnc": encryptSecret(tokens.refresh_token),
+    "config.connectedEmail": email,
+    updatedAt: FieldValue.serverTimestamp(),
+  })
+
+  revalidatePath(`/media/${parsed.mediaId}`)
+  revalidatePath(`/media/${parsed.mediaId}/ajustes`)
+  redirect(`/media/${parsed.mediaId}`)
+}
+
 export async function createMediaStorage(formData: FormData) {
   const { email } = await requireAuth()
 
-  const { title, provider, accountId, accessKeyId, secretAccessKey, bucket } =
-    validateMediaInput(
-      typeof formData.get("title") === "string"
-        ? (formData.get("title") as string)
-        : "",
-      typeof formData.get("provider") === "string"
-        ? (formData.get("provider") as string)
-        : "",
-      typeof formData.get("accountId") === "string"
-        ? (formData.get("accountId") as string)
-        : "",
-      typeof formData.get("accessKeyId") === "string"
-        ? (formData.get("accessKeyId") as string)
-        : "",
-      typeof formData.get("secretAccessKey") === "string"
-        ? (formData.get("secretAccessKey") as string)
-        : "",
-      typeof formData.get("bucket") === "string"
-        ? (formData.get("bucket") as string)
-        : "",
-    )
-
-  const s3ApiEndpoint = normalizeR2Endpoint(
-    typeof formData.get("S3APIendpoint") === "string"
-      ? (formData.get("S3APIendpoint") as string)
+  const input = validateMediaInput(
+    typeof formData.get("title") === "string"
+      ? (formData.get("title") as string)
       : "",
-    accountId,
+    typeof formData.get("provider") === "string"
+      ? (formData.get("provider") as string)
+      : "",
+    typeof formData.get("accountId") === "string"
+      ? (formData.get("accountId") as string)
+      : "",
+    typeof formData.get("accessKeyId") === "string"
+      ? (formData.get("accessKeyId") as string)
+      : "",
+    typeof formData.get("secretAccessKey") === "string"
+      ? (formData.get("secretAccessKey") as string)
+      : "",
+    typeof formData.get("bucket") === "string"
+      ? (formData.get("bucket") as string)
+      : "",
   )
+
+  const s3ApiEndpoint =
+    input.provider === "google-drive"
+      ? ""
+      : normalizeR2Endpoint(
+          typeof formData.get("S3APIendpoint") === "string"
+            ? (formData.get("S3APIendpoint") as string)
+            : "",
+          input.accountId,
+        )
 
   const stayValue = formData.get("stay")
   const stay = stayValue === "1"
@@ -146,20 +325,28 @@ export async function createMediaStorage(formData: FormData) {
   const docRef = db.collection("media").doc()
 
   await docRef.set({
-    title,
-    provider,
+    title: input.title,
+    provider: input.provider,
     allowedUsers: [{ email, role: "owner" as Role }],
     memberEmails: [email],
-    config: {
-      accountId,
-      accessKeyId,
-      bucket,
-      S3APIendpoint: s3ApiEndpoint || undefined,
-      secretEnc: encryptSecret(secretAccessKey),
-    },
+    config:
+      input.provider === "google-drive"
+        ? { refreshTokenEnc: "" }
+        : {
+            accountId: input.accountId,
+            accessKeyId: input.accessKeyId,
+            bucket: input.bucket,
+            S3APIendpoint: s3ApiEndpoint || undefined,
+            secretEnc: encryptSecret(input.secretAccessKey),
+          },
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
   })
+
+  if (input.provider === "google-drive") {
+    // Drive needs an OAuth consent round-trip before it can be listed.
+    redirect(await buildDriveConnectUrl(docRef.id, email))
+  }
 
   if (!stay) {
     redirect(`/media/${docRef.id}`)
@@ -181,6 +368,15 @@ export async function getMediaStorageClient(
   const { email } = await requireAuth()
 
   const { data } = await requireMember("media", mediaId, email)
+
+  // Only the R2 flow uses an S3 client; Drive operations branch off before
+  // reaching this function, so reaching it with a Drive doc is an unsupported
+  // operation (upload, move, delete, …) for now.
+  if (docProvider(data) === "google-drive") {
+    throw new Error(
+      "Esta operación no está disponible para Google Drive todavía",
+    )
+  }
 
   const config =
     (data.config as {
@@ -232,6 +428,28 @@ export async function listMediaStorageEntries(
   mediaId: string,
   prefix = "",
 ): Promise<StorageEntry[]> {
+  const { email } = await requireAuth()
+  const { data } = await requireMember("media", mediaId, email)
+
+  if (docProvider(data) === "google-drive") {
+    assertValidObjectPrefix(prefix, "Ruta de carpeta inválida")
+    const config = (data.config as Partial<DriveConfig> | undefined) ?? {}
+    const refreshToken = config.refreshTokenEnc
+      ? decryptSecret(config.refreshTokenEnc)
+      : ""
+    if (!refreshToken) throw new Error(DRIVE_NOT_CONNECTED_MESSAGE)
+
+    try {
+      const accessToken = await refreshDriveAccessToken(refreshToken)
+      return await listDriveEntries(accessToken, prefix)
+    } catch (error) {
+      console.error({ error })
+      throw error instanceof Error
+        ? error
+        : new Error("No se pudo cargar el contenido de Google Drive.")
+    }
+  }
+
   const { client, bucket } = await getMediaStorageClient(mediaId)
 
   try {
@@ -259,7 +477,9 @@ export async function listMediaStorageEntries(
       })
 
     const files = (response.Contents ?? [])
-      .filter((item) => item.Key && item.Key !== prefix)
+      .filter(
+        (item) => item.Key && item.Key !== prefix && detectMediaKind(item.Key),
+      )
       .map((item) => {
         const key = item.Key ?? ""
         const name = key.split("/").filter(Boolean).at(-1) ?? key
@@ -305,10 +525,21 @@ export async function getMediaEntryUrl(
   key: string,
   asDownload = false,
 ): Promise<string> {
-  const { client, bucket } = await getMediaStorageClient(mediaId)
+  const { email } = await requireAuth()
+  const { data } = await requireMember("media", mediaId, email)
 
   const trimmedKey = key.trim()
   assertValidObjectKey(trimmedKey, "Clave de archivo inválida")
+
+  // Drive has no presigned URLs; playback and downloads go through the
+  // authenticated streaming proxy route.
+  if (docProvider(data) === "google-drive") {
+    const params = new URLSearchParams({ key: trimmedKey })
+    if (asDownload) params.set("dl", "1")
+    return `/api/media/${mediaId}/file?${params.toString()}`
+  }
+
+  const { client, bucket } = await getMediaStorageClient(mediaId)
 
   const fileName = trimmedKey.split("/").at(-1) ?? trimmedKey
 
@@ -351,6 +582,12 @@ export async function updateMediaConfig(
     ["owner", "admin"],
     "editar la configuración",
   )
+
+  if (docProvider(data) === "google-drive") {
+    throw new Error(
+      "La configuración de Google Drive se gestiona reconectando la cuenta",
+    )
+  }
 
   const currentSecretEnc = (data.config as { secretEnc?: string }).secretEnc
   const currentConfig = (data.config as { S3APIendpoint?: string }) ?? {}
@@ -470,7 +707,7 @@ export async function removeUserFromMedia(mediaId: string, email: string) {
 export async function deleteMediaEntry(mediaId: string, key: string) {
   const { email } = await requireAuth()
 
-  await requireCallerRole(
+  const { data } = await requireCallerRole(
     "media",
     mediaId,
     email,
@@ -478,10 +715,25 @@ export async function deleteMediaEntry(mediaId: string, key: string) {
     "eliminar archivos",
   )
 
-  const { client, bucket } = await getMediaStorageClient(mediaId)
-
   const trimmedKey = key.trim()
   assertValidObjectKey(trimmedKey, "Clave de archivo inválida")
+
+  if (docProvider(data) === "google-drive") {
+    const { accessToken, refreshToken } = await driveToken(data)
+    try {
+      await deleteDriveFile(accessToken, trimmedKey)
+    } catch (error) {
+      console.error(`[drive:delete] failed for ${mediaId}/${trimmedKey}`, error)
+      throw error instanceof Error
+        ? error
+        : new Error("No se pudo eliminar el archivo de Google Drive")
+    }
+    invalidateDriveFileId(refreshToken, trimmedKey)
+    revalidatePath(`/media/${mediaId}`)
+    return
+  }
+
+  const { client, bucket } = await getMediaStorageClient(mediaId)
 
   await client.send(
     new DeleteObjectCommand({
@@ -496,45 +748,62 @@ export async function deleteMediaEntry(mediaId: string, key: string) {
 export async function deleteMediaFolder(mediaId: string, prefix: string) {
   const { email } = await requireAuth()
 
-  await requireCallerRole(
+  const { data } = await requireCallerRole(
     "media",
     mediaId,
     email,
-    ["owner", "admin"],
+    ["owner"],
     "eliminar carpetas",
   )
-
-  const { client, bucket } = await getMediaStorageClient(mediaId)
 
   const trimmedPrefix = prefix.trim()
   assertValidObjectKey(trimmedPrefix, "Prefijo de carpeta inválido")
 
-  let continuationToken: string | undefined
-  do {
-    const response = await client.send(
-      new ListObjectsV2Command({
+  if (docProvider(data) === "google-drive") {
+    const { accessToken } = await driveToken(data)
+    try {
+      await deleteDriveFolder(accessToken, trimmedPrefix)
+    } catch (error) {
+      console.error(
+        `[drive:delete] failed for ${mediaId}/${trimmedPrefix}`,
+        error,
+      )
+      throw error instanceof Error
+        ? error
+        : new Error("No se pudo eliminar la carpeta de Google Drive")
+    }
+    revalidatePath(`/media/${mediaId}`)
+    return
+  }
+
+  const { client, bucket } = await getMediaStorageClient(mediaId)
+
+  // Only an empty folder can be deleted: its zero-byte "/" marker (the S3/R2
+  // directory convention) and nothing else. A couple of keys is enough to tell
+  // the marker apart from real content.
+  const response = await client.send(
+    new ListObjectsV2Command({
+      Bucket: bucket,
+      Prefix: trimmedPrefix,
+      MaxKeys: 2,
+    }),
+  )
+  const contents = response.Contents ?? []
+  const hasMarker = contents.length === 1 && contents[0].Key === trimmedPrefix
+  if (contents.length > 1 || (contents.length === 1 && !hasMarker)) {
+    throw new Error(
+      "La carpeta no está vacía: elimina su contenido antes de borrarla",
+    )
+  }
+
+  if (hasMarker) {
+    await client.send(
+      new DeleteObjectCommand({
         Bucket: bucket,
-        Prefix: trimmedPrefix,
-        ContinuationToken: continuationToken,
+        Key: trimmedPrefix,
       }),
     )
-
-    const objects = response.Contents ?? []
-    if (objects.length > 0) {
-      await Promise.all(
-        objects.map((obj) =>
-          client.send(
-            new DeleteObjectCommand({
-              Bucket: bucket,
-              Key: obj.Key!,
-            }),
-          ),
-        ),
-      )
-    }
-
-    continuationToken = response.NextContinuationToken
-  } while (continuationToken)
+  }
 
   revalidatePath(`/media/${mediaId}`)
 }
@@ -547,18 +816,36 @@ const MAX_TOTAL_UPLOAD_SIZE = 10 * 1024 * 1024 * 1024
 // Presigned URLs use the maximum expiry S3/R2 allows: 7 days.
 const PRESIGN_EXPIRY_SECONDS = 60 * 60 * 24 * 7
 
+async function driveToken(data: Record<string, unknown>) {
+  const config = (data.config as Partial<DriveConfig> | undefined) ?? {}
+  const refreshToken = config.refreshTokenEnc
+    ? decryptSecret(config.refreshTokenEnc)
+    : ""
+  if (!refreshToken) throw new Error(DRIVE_NOT_CONNECTED_MESSAGE)
+  return {
+    accessToken: await refreshDriveAccessToken(refreshToken),
+    refreshToken,
+  }
+}
+
+function driveFileName(key: string) {
+  const name = key.split("/").filter(Boolean).at(-1) ?? ""
+  if (!name || name === "." || name === "..") {
+    throw new Error("Clave de archivo inválida")
+  }
+  return name
+}
+
 export async function uploadMediaEntries(mediaId: string, formData: FormData) {
   const { email } = await requireAuth()
 
-  await requireCallerRole(
+  const { data } = await requireCallerRole(
     "media",
     mediaId,
     email,
     ["owner", "admin"],
     "subir archivos",
   )
-
-  const { client, bucket } = await getMediaStorageClient(mediaId)
 
   const prefix = (formData.get("prefix") as string | null)?.trim() ?? ""
   assertValidObjectPrefix(prefix, "Ruta de carpeta inválida")
@@ -572,6 +859,41 @@ export async function uploadMediaEntries(mediaId: string, formData: FormData) {
   const totalSize = files.reduce((sum, f) => sum + f.size, 0)
   if (totalSize > MAX_TOTAL_UPLOAD_SIZE)
     throw new Error("El tamaño total supera el límite de 10 GB")
+
+  if (docProvider(data) === "google-drive") {
+    const { accessToken, refreshToken } = await driveToken(data)
+    const parentId = await resolveDriveUploadParent(accessToken, prefix)
+    for (const file of files) {
+      const key = `${prefix}${file.name.trim()}`
+      assertValidObjectKey(key, `Clave de archivo inválida: ${file.name}`)
+      if (!detectMediaKind(key)) {
+        throw new Error(
+          `Solo se permiten archivos de vídeo, imagen o audio: ${file.name}`,
+        )
+      }
+      if (file.size === 0)
+        throw new Error(`El archivo está vacío: ${file.name}`)
+      if (file.size > MAX_ACTION_UPLOAD_SIZE) {
+        throw new Error(
+          `El archivo debe subirse vía URL prefirmada: ${file.name}`,
+        )
+      }
+      await uploadDriveFile(
+        accessToken,
+        parentId,
+        driveFileName(key),
+        file.type || "application/octet-stream",
+        new Uint8Array(await file.arrayBuffer()),
+      )
+      // A re-upload replaces the Drive file: drop the cached id so playback
+      // and downloads resolve the new file instead of 404-ing on the old one.
+      invalidateDriveFileId(refreshToken, key)
+    }
+    revalidatePath(`/media/${mediaId}`)
+    return
+  }
+
+  const { client, bucket } = await getMediaStorageClient(mediaId)
 
   for (const file of files) {
     const key = `${prefix}${file.name.trim()}`
@@ -612,10 +934,11 @@ export async function getMediaUploadUrl(
   mediaId: string,
   key: string,
   size: number,
+  mimeType = "application/octet-stream",
 ) {
   const { email } = await requireAuth()
 
-  await requireCallerRole(
+  const { data } = await requireCallerRole(
     "media",
     mediaId,
     email,
@@ -633,6 +956,23 @@ export async function getMediaUploadUrl(
   // Single-shot PUT tops out at 5 GB in R2.
   if (size > MOVE_MAX_SIZE)
     throw new Error("El archivo supera el límite de tamaño por archivo")
+
+  if (docProvider(data) === "google-drive") {
+    const { accessToken, refreshToken } = await driveToken(data)
+    const prefix = trimmedKey.slice(0, trimmedKey.lastIndexOf("/") + 1)
+    const parentId = await resolveDriveUploadParent(accessToken, prefix)
+    const url = await startDriveResumableUpload(
+      accessToken,
+      parentId,
+      driveFileName(trimmedKey),
+      mimeType || "application/octet-stream",
+      size,
+    )
+    // Same reason as the small-file path: the browser PUT will (re)create the
+    // file, so any cached id for this key must go.
+    invalidateDriveFileId(refreshToken, trimmedKey)
+    return { url }
+  }
 
   const { client, bucket } = await getMediaStorageClient(mediaId)
 

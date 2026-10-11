@@ -10,6 +10,7 @@ import {
   renameMediaStorage,
   addUserToMedia,
   removeUserFromMedia,
+  startDriveConnect,
 } from "@/lib/actions/media"
 import { Button } from "@/components/ui/Button"
 import { ShareButton } from "@/components/ui/ShareButton"
@@ -36,19 +37,26 @@ export default async function MediaSettingsPage({ params }: Props) {
   ).find((u) => u.email === session.user?.email)
   if (!userEntry) redirect("/")
 
-  const config = data.config ?? {}
+  const rawConfig = data.config ?? {}
+  const provider = data.provider ?? "cloudflare-r2"
   const media: MediaStorage = {
     id: snap.id,
     title: data.title ?? "",
-    provider: data.provider ?? "cloudflare-r2",
+    provider,
     allowedUsers: data.allowedUsers,
     memberEmails: data.memberEmails,
-    config: {
-      accountId: config.accountId ?? "",
-      accessKeyId: config.accessKeyId ?? "",
-      bucket: config.bucket ?? "",
-      secretEnc: "",
-    },
+    config:
+      provider === "google-drive"
+        ? {
+            refreshTokenEnc: "",
+            connectedEmail: rawConfig.connectedEmail,
+          }
+        : {
+            accountId: rawConfig.accountId ?? "",
+            accessKeyId: rawConfig.accessKeyId ?? "",
+            bucket: rawConfig.bucket ?? "",
+            secretEnc: "",
+          },
     createdAt: {
       seconds: data.createdAt?.seconds ?? 0,
       nanoseconds: data.createdAt?.nanoseconds ?? 0,
@@ -87,15 +95,45 @@ export default async function MediaSettingsPage({ params }: Props) {
         </div>
       )}
       {canManage ? (
-        <StorageConfigForm
-          mediaId={id}
-          config={{
-            accountId: media.config.accountId,
-            accessKeyId: media.config.accessKeyId,
-            bucket: media.config.bucket,
-            s3ApiEndpoint: config.S3APIendpoint ?? "",
-          }}
-        />
+        media.provider === "google-drive" ? (
+          <div className="mb-8 pb-6 border-b border-black/10">
+            <h2 className="font-bold text-lg mb-2">Conexión de Google Drive</h2>
+            {media.config &&
+            "connectedEmail" in media.config &&
+            media.config.connectedEmail ? (
+              <p className="text-text/60 text-sm mb-3">
+                Conectado como{" "}
+                <span className="font-medium">
+                  {media.config.connectedEmail}
+                </span>
+              </p>
+            ) : (
+              <p className="text-text/60 text-sm mb-3">
+                Este storage aún no está conectado a Google Drive.
+              </p>
+            )}
+            <form action={startDriveConnect.bind(null, id)}>
+              <Button variant="blue" type="submit">
+                {media.config &&
+                "connectedEmail" in media.config &&
+                media.config.connectedEmail
+                  ? "Reconectar Google Drive"
+                  : "Conectar Google Drive"}
+              </Button>
+            </form>
+          </div>
+        ) : (
+          <StorageConfigForm
+            mediaId={id}
+            config={{
+              accountId: (media.config as { accountId: string }).accountId,
+              accessKeyId: (media.config as { accessKeyId: string })
+                .accessKeyId,
+              bucket: (media.config as { bucket: string }).bucket,
+              s3ApiEndpoint: rawConfig.S3APIendpoint ?? "",
+            }}
+          />
+        )
       ) : (
         <p className="mb-8 text-text/60 text-sm">
           Solo el admin puede ver y cambiar la configuración del storage.
