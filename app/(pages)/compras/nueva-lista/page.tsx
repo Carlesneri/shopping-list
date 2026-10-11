@@ -48,8 +48,10 @@ export default async function NewListPage() {
           />
           <datalist id="market-suggestions">
             <option value="Mercadona" />
-            <option value="Leroy Merlin" />
+            <option value="Carrefour" />
+            <option value="Consum" />
             <option value="Decathlon" />
+            <option value="Leroy Merlin" />
           </datalist>
         </div>
         <Button type="submit" className="mt-2">

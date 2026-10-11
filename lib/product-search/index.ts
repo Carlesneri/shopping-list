@@ -1,4 +1,6 @@
 import type { SearchProvider } from "./types"
+import { carrefourProvider } from "./carrefour"
+import { consumProvider } from "./consum"
 import { decathlonProvider } from "./decathlon"
 import { mercadonaProvider } from "./mercadona"
 
@@ -18,6 +20,8 @@ export function suggestionSignal(signal?: AbortSignal) {
 const PRODUCT_SEARCH: Record<string, SearchProvider> = {
   mercadona: mercadonaProvider,
   decathlon: decathlonProvider,
+  carrefour: carrefourProvider,
+  consum: consumProvider,
 }
 
 /** Returns the provider implementation for a market, or undefined when the
@@ -44,7 +48,7 @@ export async function fetchMarketSuggestions(
   signal?: AbortSignal,
 ) {
   const provider = PRODUCT_SEARCH[market.trim().toLowerCase()]
-  if (!provider) return []
+  if (!provider || provider.enabled === false) return []
 
   const query = encodeURIComponent(searchText.trim())
   try {

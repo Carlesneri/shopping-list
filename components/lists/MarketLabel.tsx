@@ -31,6 +31,20 @@ const MARKET_LOGOS: {
     width: 330,
     height: 96,
   },
+  {
+    match: "carrefour",
+    src: "/assets/carrefour.png",
+    alt: "Carrefour",
+    width: 492,
+    height: 83,
+  },
+  {
+    match: "consum",
+    src: "/assets/consum.png",
+    alt: "Consum",
+    width: 330,
+    height: 194,
+  },
 ]
 
 /** Whether we have a logo for this market. */

@@ -3,17 +3,17 @@ import type { ProductSuggestion } from "./types"
 import { providerFor, suggestionSignal } from "./index"
 
 /** Client-side suggestion fetch. Routes each market to where its API is
- * reachable: bot-protected providers (Mercadona's mirror) are fetched
- * directly from the browser with the visitor's clearance cookies; the rest
- * go through the searchProductSuggestions server action. Best-effort — any
- * failure yields an empty list and is logged. */
+ * reachable: bot-protected providers with open CORS (Mercadona's mirror) are
+ * fetched directly from the browser; the rest go through the
+ * searchProductSuggestions server action. Best-effort — any failure yields
+ * an empty list and is logged (browser console for direct fetches). */
 export async function fetchProductSuggestions(
   searchText: string,
   market: string,
   signal?: AbortSignal,
 ): Promise<ProductSuggestion[]> {
   const provider = providerFor(market)
-  if (!provider) return []
+  if (!provider || provider.enabled === false) return []
 
   const query = encodeURIComponent(searchText.trim())
 
@@ -25,6 +25,7 @@ export async function fetchProductSuggestions(
       // browser's own fingerprint satisfies the bot check.
       const response = await fetch(provider.url(query), {
         signal: suggestionSignal(signal),
+        ...(provider.credentials ? { credentials: "include" } : {}),
       })
       if (!response.ok) {
         console.error(

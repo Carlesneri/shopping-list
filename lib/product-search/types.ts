@@ -20,4 +20,10 @@ export interface SearchProvider {
    * client-side, without credentials (the mirror answers with a wildcard
    * `Access-Control-Allow-Origin`, incompatible with credentialed requests). */
   side?: "client" | "server"
+  /** false when the endpoint is known-unreachable: suggestions are skipped
+   * entirely (no request at all). Flip back to true / remove when it works. */
+  enabled?: boolean
+  /** Sends cookies with the client-side fetch — needed when the API requires
+   * the browser's bot-protection clearance and echoes the request origin. */
+  credentials?: boolean
 }
