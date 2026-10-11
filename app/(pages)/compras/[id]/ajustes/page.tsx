@@ -2,6 +2,7 @@ import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import { getDB } from "@/lib/firebase-admin"
 import { UserList } from "@/components/lists/UserList"
+import { MarketLabel } from "@/components/lists/MarketLabel"
 import { AddUserForm } from "@/components/lists/AddUserForm"
 import { RenameListForm } from "@/components/lists/RenameListForm"
 import { deleteList } from "@/lib/actions/lists"
@@ -59,9 +60,15 @@ export default async function ListSettingsPage({ params }: Props) {
         <span className="text-sm">Volver a la lista</span>
       </Link>
       <div className="flex items-start justify-between gap-3 mb-6">
-        <h1 className="text-2xl font-bold">
-          Ajustes &ldquo;{list.title}&rdquo;
-        </h1>
+        <div className="flex flex-col gap-3">
+          <h1 className="text-2xl font-bold">
+            Ajustes &ldquo;{list.title}&rdquo;
+          </h1>
+          <div className="flex items-center gap-1.5 text-text/50 text-sm mt-1">
+            <MarketLabel market={list.market} logoHeight={28} />
+            <span>{list.market}</span>
+          </div>
+        </div>
         <ShareButton path={`/compras/${id}`} color="blue" />
       </div>
       {isOwner && (

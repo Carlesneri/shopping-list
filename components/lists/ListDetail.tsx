@@ -17,6 +17,7 @@ import { FabButton } from "@/components/ui/FabButton"
 import { ShareButton } from "@/components/ui/ShareButton"
 import { AddButton } from "@/components/ui/AddButton"
 import { AddProductForm } from "@/components/lists/AddProductForm"
+import { MarketLabel, marketHasLogo } from "@/components/lists/MarketLabel"
 import {
   updateProductQuantity,
   removeProductFromList,
@@ -202,9 +203,18 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
       </Link>
 
       <div className="flex items-start justify-between mb-8">
-        <div>
+        <div className="flex flex-col gap-3">
           <h1 className="text-2xl font-bold leading-tight">{list.title}</h1>
-          <p className="text-text/50 text-sm mt-0.5">{list.market}</p>
+          {marketHasLogo(list.market) ? (
+            <div className="mt-0.5">
+              <MarketLabel market={list.market} logoHeight={28} />
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 text-text/50 text-sm mt-0.5">
+              <MarketLabel market={list.market} />
+              <span>{list.market}</span>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <FabButton

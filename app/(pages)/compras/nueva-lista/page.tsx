@@ -29,7 +29,7 @@ export default async function NewListPage() {
             name="title"
             type="text"
             required
-            placeholder="Lista del viernes"
+            placeholder="Nombre de la lista"
             className="border-2 border-black rounded-md px-3 py-2 font-sans focus:outline-none focus:border-primary"
           />
         </div>
@@ -42,9 +42,15 @@ export default async function NewListPage() {
             name="market"
             type="text"
             required
-            placeholder="Mercadona"
+            list="market-suggestions"
+            placeholder="Nombre del mercado"
             className="border-2 border-black rounded-md px-3 py-2 font-sans focus:outline-none focus:border-primary"
           />
+          <datalist id="market-suggestions">
+            <option value="Mercadona" />
+            <option value="Leroy Merlin" />
+            <option value="Decathlon" />
+          </datalist>
         </div>
         <Button type="submit" className="mt-2">
           Crear lista
