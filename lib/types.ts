@@ -22,6 +22,11 @@ export interface ListProduct {
   name: string
   quantity: number
   checked?: boolean
+  /** Market catalog reference (e.g. a Mercadona product id), set when the
+   * product was picked from a market suggestion. */
+  marketProductId?: string
+  /** Product image URL from the market catalog. */
+  image?: string
 }
 
 export interface ShoppingList {

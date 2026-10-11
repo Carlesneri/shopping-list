@@ -18,6 +18,7 @@ import { ShareButton } from "@/components/ui/ShareButton"
 import { AddButton } from "@/components/ui/AddButton"
 import { AddProductForm } from "@/components/lists/AddProductForm"
 import { MarketLabel, marketHasLogo } from "@/components/lists/MarketLabel"
+import { useMediaPlayer } from "@/components/media/MediaPlayerProvider"
 import {
   updateProductQuantity,
   removeProductFromList,
@@ -51,6 +52,7 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
   const [isShortcut, setIsShortcut] = useState(false)
   const [shortcutLoading, setShortcutLoading] = useState(false)
   const router = useRouter()
+  const { openPlayer } = useMediaPlayer()
 
   const checkShortcut = useCallback(async () => {
     try {
@@ -242,27 +244,27 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
         </div>
       </div>
 
-      {isFormOpen && (
+      {isFormOpen && !editingProduct ? (
         <div className="mb-6">
           <AddProductForm
             listId={listId}
-            onClose={() => {
-              setIsFormOpen(false)
-              setEditingProduct(null)
-            }}
-            productToEdit={editingProduct}
+            market={list.market}
+            onClose={() => setIsFormOpen(false)}
           />
         </div>
-      )}
+      ) : null}
 
       {/* Product list */}
       {products.length > 0 ? (
         <ul className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-x-4 gap-y-2">
           {products.map((item, index) => {
             const checked = item.checked ?? false
+            const image = item.image
+            const isEditingThis = editingProduct?.productId === item.productId
             const handleEdit = () => {
-              setEditingProduct(item)
-              setIsFormOpen(true)
+              // The add form (top) and the inline edit form are exclusive.
+              setIsFormOpen(false)
+              setEditingProduct(isEditingThis ? null : item)
             }
             return (
               <li
@@ -290,16 +292,43 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
                     )}
                   </div>
                 </label>
-                <button
-                  type="button"
-                  onClick={handleEdit}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") handleEdit()
-                  }}
-                  className={`font-semibold capitalize transition-all ${checked ? "line-through opacity-50" : ""} text-left w-full p-0 cursor-pointer`}
-                >
-                  {item.name}
-                </button>
+                <div className="flex min-w-0 items-center gap-2">
+                  {image ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openPlayer({
+                          src: image,
+                          title: item.name,
+                          kind: "image",
+                          storageKey: `${listId}:${item.productId}`,
+                        })
+                      }
+                      className="shrink-0 cursor-pointer"
+                      title="Ver imagen del producto"
+                      aria-label={`Ver imagen de ${item.name}`}
+                    >
+                      {/* Market CDN image: cross-origin, next/image would
+                          need remotePatterns for each market domain. */}
+                      {/* biome-ignore lint/performance/noImgElement: external market image */}
+                      <img
+                        src={image}
+                        alt=""
+                        className="h-10 w-10 rounded-lg object-cover"
+                      />
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={handleEdit}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") handleEdit()
+                    }}
+                    className={`font-semibold capitalize transition-all ${checked ? "line-through opacity-50" : ""} text-left flex-1 min-w-0 p-0 cursor-pointer`}
+                  >
+                    {item.name}
+                  </button>
+                </div>
                 <div
                   className={`flex items-center rounded-full bg-blue text-white shadow-[0_3px_0_0_#2e6aad] transition-opacity ${checked ? "opacity-50" : ""}`}
                 >
@@ -332,6 +361,18 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
                 >
                   <IconTrash size={18} />
                 </button>
+                {isEditingThis ? (
+                  // Same add-product form, in edit mode, right below the
+                  // product being edited.
+                  <div className="col-span-4 mt-2">
+                    <AddProductForm
+                      listId={listId}
+                      market={list.market}
+                      onClose={() => setEditingProduct(null)}
+                      productToEdit={editingProduct}
+                    />
+                  </div>
+                ) : null}
               </li>
             )
           })}
@@ -348,7 +389,11 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
 
       <AddButton
         color="primary"
-        onClick={() => setIsFormOpen((v) => !v)}
+        onClick={() => {
+          // The add form (top) and the inline edit form are exclusive.
+          setEditingProduct(null)
+          setIsFormOpen((v) => !v)
+        }}
         fixed
       />
     </div>

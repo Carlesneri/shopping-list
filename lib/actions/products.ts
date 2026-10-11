@@ -5,11 +5,38 @@ import { revalidatePath } from "next/cache"
 import { getDB } from "@/lib/firebase-admin"
 import { normalizeProductName } from "@/lib"
 import { requireAuth, requireMember } from "@/lib/auth-helpers"
+import {
+  fetchMarketSuggestions,
+  type ProductSuggestion,
+} from "@/lib/product-search"
+
+/** The market-catalog reference attached to a product when it was picked from
+ * a suggestion. The id is always the market's product id; the image is the
+ * first resolved image URL. */
+export interface ProductSuggestionRef {
+  id: string
+  image?: string
+}
+
+/** Validates a client-supplied suggestion reference before storing it. */
+function sanitizeSuggestionRef(ref?: ProductSuggestionRef | null) {
+  if (!ref || typeof ref.id !== "string") return undefined
+  const marketProductId = ref.id.trim().slice(0, 100)
+  if (!marketProductId) return undefined
+  const image =
+    typeof ref.image === "string" &&
+    ref.image.startsWith("https://") &&
+    ref.image.length <= 1000
+      ? ref.image
+      : undefined
+  return { marketProductId, ...(image ? { image } : {}) }
+}
 
 export async function addProductToList(
   listId: string,
   name: string,
   quantity: number,
+  suggestion?: ProductSuggestionRef | null,
 ) {
   const { email } = await requireAuth()
   await requireMember("lists", listId, email)
@@ -19,13 +46,19 @@ export async function addProductToList(
   if (!Number.isFinite(quantity) || quantity < 1)
     throw new Error("Cantidad inválida")
 
+  const market = sanitizeSuggestionRef(suggestion)
+
   const db = getDB()
   const listRef = db.collection("lists").doc(listId)
 
   const productDocId = normalizedName.replace(/[/.]/g, "-")
   const productRef = db.collection("productos").doc(productDocId)
   await productRef.set(
-    { name: normalizedName, timesSelected: FieldValue.increment(1) },
+    {
+      name: normalizedName,
+      timesSelected: FieldValue.increment(1),
+      ...(market ?? {}),
+    },
     { merge: true },
   )
   const productId = productRef.id
@@ -35,6 +68,7 @@ export async function addProductToList(
       productId,
       name: normalizedName,
       quantity,
+      ...(market ?? {}),
     }),
     updatedAt: FieldValue.serverTimestamp(),
   })
@@ -133,6 +167,7 @@ export async function updateProduct(
   productId: string,
   name: string,
   quantity: number,
+  suggestion?: ProductSuggestionRef | null,
 ) {
   const { email } = await requireAuth()
   await requireMember("lists", listId, email)
@@ -141,6 +176,10 @@ export async function updateProduct(
   if (!normalizedName) throw new Error("El nombre no puede estar vacío")
   if (!Number.isFinite(quantity) || quantity < 1)
     throw new Error("Cantidad inválida")
+
+  // Only override the market reference when a new suggestion was picked;
+  // otherwise the existing image/id stay untouched.
+  const market = suggestion ? sanitizeSuggestionRef(suggestion) : undefined
 
   const db = getDB()
   const listRef = db.collection("lists").doc(listId)
@@ -158,7 +197,7 @@ export async function updateProduct(
     }[]
     const updated = products.map((p) =>
       p.productId === productId
-        ? { ...p, name: normalizedName, quantity }
+        ? { ...p, name: normalizedName, quantity, ...(market ?? {}) }
         : p,
     )
     tx.update(listRef, {
@@ -170,9 +209,30 @@ export async function updateProduct(
   const productDocId = normalizedName.replace(/[/.]/g, "-")
   const productRef = db.collection("productos").doc(productDocId)
   await productRef.set(
-    { name: normalizedName, timesSelected: FieldValue.increment(1) },
+    {
+      name: normalizedName,
+      timesSelected: FieldValue.increment(1),
+      ...(market ?? {}),
+    },
     { merge: true },
   )
 
   revalidatePath(`/compras/${listId}`)
+}
+
+/** Product suggestions from a market's search API (Mercadona, Decathlon…).
+ * The market APIs send no CORS headers, so the browser calls this action
+ * instead. The target URL is built from the market allowlist in
+ * lib/product-search.ts — never an open relay. */
+export async function searchProductSuggestions(
+  searchText: string,
+  market: string,
+): Promise<ProductSuggestion[]> {
+  await requireAuth()
+
+  const q = searchText.trim().slice(0, 200)
+  const m = market.trim().slice(0, 50)
+  if (!q || !m) return []
+
+  return fetchMarketSuggestions(q, m)
 }
