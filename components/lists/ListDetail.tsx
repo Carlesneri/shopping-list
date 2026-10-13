@@ -117,6 +117,13 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
     },
   )
 
+  // Alphabetical order, with unchecked items first.
+  const sortedProducts = [...products].sort((a, b) => {
+    const checkedDiff = Number(a.checked ?? false) - Number(b.checked ?? false)
+    if (checkedDiff !== 0) return checkedDiff
+    return a.name.localeCompare(b.name, "es", { sensitivity: "base" })
+  })
+
   function handleToggleChecked(productId: string, current: boolean) {
     startTransition(async () => {
       applyOptimistic({ type: "toggle", productId, checked: !current })
@@ -257,7 +264,7 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
       {/* Product list */}
       {products.length > 0 ? (
         <ul className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-x-2 gap-y-2">
-          {products.map((item, index) => {
+          {sortedProducts.map((item, index) => {
             const checked = item.checked ?? false
             const image = item.image
             const isEditingThis = editingProduct?.productId === item.productId
