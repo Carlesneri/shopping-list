@@ -256,7 +256,7 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
 
       {/* Product list */}
       {products.length > 0 ? (
-        <ul className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-x-4 gap-y-2">
+        <ul className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-x-2 gap-y-2">
           {products.map((item, index) => {
             const checked = item.checked ?? false
             const image = item.image
@@ -292,7 +292,7 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
                     )}
                   </div>
                 </label>
-                <div className="flex min-w-0 items-center gap-2">
+                <div className="flex min-w-0 items-center gap-1.5">
                   {image ? (
                     <button
                       type="button"
@@ -324,7 +324,7 @@ export function ListDetail({ initialList, userEmail, listId }: Props) {
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") handleEdit()
                     }}
-                    className={`font-semibold capitalize transition-all ${checked ? "line-through opacity-50" : ""} text-left flex-1 min-w-0 p-0 cursor-pointer`}
+                    className={`font-semibold capitalize transition-all truncate ${checked ? "line-through opacity-50" : ""} text-left flex-1 min-w-0 p-0 cursor-pointer`}
                   >
                     {item.name}
                   </button>
