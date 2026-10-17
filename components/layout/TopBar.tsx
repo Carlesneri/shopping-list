@@ -1,7 +1,6 @@
 import Image from "next/image"
 import Link from "next/link"
 import { auth, signOut } from "@/auth"
-import { FabButton } from "@/components/ui/FabButton"
 import { IconLogout } from "@tabler/icons-react"
 
 export async function TopBar() {
@@ -44,15 +43,14 @@ export async function TopBar() {
                 await signOut({ redirectTo: "/" })
               }}
             >
-              <FabButton
+              <button
                 type="submit"
-                color="pink"
-                size="sm"
                 title="Cerrar sesión"
                 aria-label="Cerrar sesión"
+                className="flex items-center justify-center w-9 h-9 rounded-full text-pink cursor-pointer transition-colors hover:bg-pink/10"
               >
-                <IconLogout size={16} />
-              </FabButton>
+                <IconLogout size={20} strokeWidth={2.2} />
+              </button>
             </form>
           </div>
         )}
