@@ -15,8 +15,59 @@ import type { MediaKind } from "@/lib/types"
 // Remembered playback positions: keyed by a stable media id (the presigned
 // URL changes on every open, so it can't be the key).
 const POSITION_PREFIX = "movi-pos:"
+// Remembered audio/subtitle picks for a file, keyed the same way.
+const TRACKS_PREFIX = "movi-tracks:"
+// Keep the player's global settings store, but take track choices out of it:
+// those are saved per file by this component instead.
+const PLAYER_PERSIST_KEY = "shopping-list"
+const PLAYER_PERSIST =
+  "loop muted volume speed ambient stablevolume hdr aspect cropbars"
 // Positions below this are considered "never really started".
 const MIN_RESUME_SECONDS = 3
+
+interface TrackPreference {
+  language?: string
+  label?: string
+  trackId?: number
+}
+
+type SubtitlePreference = TrackPreference | "off"
+
+interface SavedTracks {
+  audio?: TrackPreference
+  subtitles?: SubtitlePreference
+}
+
+interface MoviLangTrack {
+  lang: string
+  label: string
+  active: boolean
+}
+
+interface MoviMediaTrack {
+  id: number
+  language?: string
+  label?: string
+}
+
+interface MoviPlayerInternals {
+  getAudioLangs?: () => MoviLangTrack[]
+  selectAudioLang?: (lang: string) => boolean | Promise<boolean>
+  getSubtitleLangs?: () => MoviLangTrack[]
+  selectSubtitleLang?: (lang: string | null) => boolean | Promise<boolean>
+  getAudioTracks?: () => MoviMediaTrack[]
+  selectAudioTrack?: (id: number) => boolean
+  getSubtitleTracks?: () => MoviMediaTrack[]
+  selectSubtitleTrack?: (id: number | null) => boolean | Promise<boolean>
+  trackManager?: {
+    getActiveAudioTrack?: () => MoviMediaTrack | null
+    getActiveSubtitleTrack?: () => MoviMediaTrack | null
+  }
+}
+
+interface MoviElementWithPlayer extends HTMLElement {
+  player?: MoviPlayerInternals | null
+}
 
 function readSavedPosition(key?: string): number {
   if (!key || typeof window === "undefined") return 0
@@ -29,6 +80,38 @@ function readSavedPosition(key?: string): number {
   } catch {
     return 0
   }
+}
+
+function readSavedTracks(key?: string): SavedTracks | null {
+  if (!key || typeof window === "undefined") return null
+  try {
+    const raw = window.localStorage.getItem(TRACKS_PREFIX + key)
+    if (!raw) return null
+    const parsed: unknown = JSON.parse(raw)
+    return parsed && typeof parsed === "object" ? (parsed as SavedTracks) : null
+  } catch {
+    return null
+  }
+}
+
+function matchesLangPreference(
+  preference: TrackPreference,
+  track: MoviLangTrack,
+): boolean {
+  return (
+    (!!preference.language && preference.language === track.lang) ||
+    (!!preference.label && preference.label === track.label)
+  )
+}
+
+function matchesTrackPreference(
+  preference: TrackPreference,
+  track: MoviMediaTrack,
+): boolean {
+  return (
+    (!!preference.language && preference.language === track.language) ||
+    (!!preference.label && preference.label === track.label)
+  )
 }
 
 function corsRuleSnippet(): string {
@@ -111,6 +194,7 @@ export function MediaPlayer({
     () => readSavedPosition(storageKey),
     [storageKey],
   )
+  const savedTracks = useMemo(() => readSavedTracks(storageKey), [storageKey])
   const lastTimeRef = useRef(0)
   const endedRef = useRef(false)
   const lastSaveAtRef = useRef(0)
@@ -271,6 +355,180 @@ export function MediaPlayer({
       player.removeEventListener("seeked", onSeeked)
     }
   }, [kind, storageKey, savePosition])
+
+  // Remember the audio and subtitle tracks the viewer picks for this file, and
+  // put them back on the next play. Track ids are only stable within a file, so
+  // the preference is keyed by the same stable media id as the position.
+  useEffect(() => {
+    if (kind !== "video" || !storageKey) return
+    const element = playerRef.current as MoviElementWithPlayer | null
+    if (!element) return
+    const playerElement = element
+
+    let restored = !savedTracks
+    let applying = false
+
+    function restoreTracks() {
+      if (restored) return
+      const player = playerElement.player
+      if (!player) return
+
+      const preference: SavedTracks = savedTracks ?? {}
+      const audioTracks = player.getAudioTracks?.() ?? []
+      const audioLangs = player.getAudioLangs?.() ?? []
+      const subtitleTracks = player.getSubtitleTracks?.() ?? []
+      const subtitleLangs = player.getSubtitleLangs?.() ?? []
+
+      // The file's tracks are only known after the source has been opened. Keep
+      // waiting until at least the ones we need have appeared.
+      if (preference.audio && !audioTracks.length && !audioLangs.length) return
+      if (
+        preference.subtitles &&
+        preference.subtitles !== "off" &&
+        !subtitleTracks.length &&
+        !subtitleLangs.length
+      ) {
+        return
+      }
+
+      restored = true
+      applying = true
+      const pending: Promise<unknown>[] = []
+      const run = (result: boolean | Promise<boolean> | undefined) => {
+        if (result instanceof Promise) pending.push(result)
+      }
+
+      const audioPreference = preference.audio
+      if (audioPreference) {
+        const byLang = audioLangs.find((track) =>
+          matchesLangPreference(audioPreference, track),
+        )
+        if (byLang) {
+          run(player.selectAudioLang?.(byLang.lang))
+        } else {
+          const byTrack =
+            audioTracks.find(
+              (track) =>
+                audioPreference.trackId !== undefined &&
+                track.id === audioPreference.trackId,
+            ) ??
+            audioTracks.find((track) =>
+              matchesTrackPreference(audioPreference, track),
+            )
+          if (byTrack) run(player.selectAudioTrack?.(byTrack.id))
+        }
+      }
+
+      const subtitlePreference = preference.subtitles
+      if (subtitlePreference === "off") {
+        run(player.selectSubtitleTrack?.(null))
+        run(player.selectSubtitleLang?.(null))
+      } else if (subtitlePreference) {
+        const byLang = subtitleLangs.find((track) =>
+          matchesLangPreference(subtitlePreference, track),
+        )
+        if (byLang) {
+          run(player.selectSubtitleLang?.(byLang.lang))
+        } else {
+          const byTrack =
+            subtitleTracks.find(
+              (track) =>
+                subtitlePreference.trackId !== undefined &&
+                track.id === subtitlePreference.trackId,
+            ) ??
+            subtitleTracks.find((track) =>
+              matchesTrackPreference(subtitlePreference, track),
+            )
+          if (byTrack) run(player.selectSubtitleTrack?.(byTrack.id))
+        }
+      }
+
+      if (pending.length === 0) {
+        applying = false
+      } else {
+        void Promise.allSettled(pending).finally(() => {
+          applying = false
+        })
+      }
+    }
+
+    function patchSavedTracks(patch: SavedTracks) {
+      try {
+        window.localStorage.setItem(
+          TRACKS_PREFIX + storageKey,
+          JSON.stringify({ ...readSavedTracks(storageKey), ...patch }),
+        )
+      } catch {
+        // Storage unavailable — track choices just aren't kept.
+      }
+    }
+
+    function saveAudioTrack() {
+      if (!restored || applying) return
+      const player = playerElement.player
+      if (!player) return
+
+      const audioLang = player.getAudioLangs?.().find((track) => track.active)
+      if (audioLang) {
+        patchSavedTracks({
+          audio: { language: audioLang.lang, label: audioLang.label },
+        })
+        return
+      }
+
+      const audio = player.trackManager?.getActiveAudioTrack?.()
+      if (audio) {
+        patchSavedTracks({
+          audio: {
+            language: audio.language,
+            label: audio.label,
+            trackId: audio.id,
+          },
+        })
+      }
+    }
+
+    function saveSubtitleTrack() {
+      if (!restored || applying) return
+      const player = playerElement.player
+      if (!player) return
+
+      const subtitleLang = player
+        .getSubtitleLangs?.()
+        .find((track) => track.active)
+      if (subtitleLang) {
+        patchSavedTracks({
+          subtitles: { language: subtitleLang.lang, label: subtitleLang.label },
+        })
+        return
+      }
+
+      const subtitle = player.trackManager?.getActiveSubtitleTrack?.()
+      patchSavedTracks({
+        subtitles: subtitle
+          ? {
+              language: subtitle.language,
+              label: subtitle.label,
+              trackId: subtitle.id,
+            }
+          : "off",
+      })
+    }
+
+    const onTracksChange = () => restoreTracks()
+
+    element.addEventListener("trackschange", onTracksChange)
+    element.addEventListener("audiotrackchange", saveAudioTrack)
+    element.addEventListener("subtitletrackchange", saveSubtitleTrack)
+    // The tracks may already be published by the time this effect attaches.
+    restoreTracks()
+
+    return () => {
+      element.removeEventListener("trackschange", onTracksChange)
+      element.removeEventListener("audiotrackchange", saveAudioTrack)
+      element.removeEventListener("subtitletrackchange", saveSubtitleTrack)
+    }
+  }, [kind, storageKey, savedTracks])
 
   // Same tracking for the plain <audio> element.
   useEffect(() => {
@@ -460,6 +718,8 @@ export function MediaPlayer({
               controls
               autoplay
               playsinline
+              persist={PLAYER_PERSIST}
+              persistkey={PLAYER_PERSIST_KEY}
               // Resume from the last saved position, if any.
               startat={
                 savedSeconds > 0 ? String(Math.floor(savedSeconds)) : undefined
