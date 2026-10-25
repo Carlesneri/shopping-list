@@ -4,13 +4,11 @@ import sitemap from "../sitemap"
 import manifest from "../manifest"
 
 describe("robots", () => {
-  it("allows the landing and disallows private routes", () => {
+  it("allows the landings and only disallows the api", () => {
     const result = robots()
     const rules = Array.isArray(result.rules) ? result.rules[0] : result.rules
     expect(rules?.allow).toBe("/")
-    expect(rules?.disallow).toEqual(
-      expect.arrayContaining(["/compras/", "/api/"]),
-    )
+    expect(rules?.disallow).toEqual(["/api/"])
   })
 
   it("points to the sitemap", () => {

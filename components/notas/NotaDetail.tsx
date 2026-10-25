@@ -72,12 +72,8 @@ export function NotaDetail({ initialNota, userEmail, notaId }: Props) {
         setIsShortcut(true)
         toast.success("Acceso directo añadido al inicio")
       }
-    } catch (err) {
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : "Error al actualizar acceso directo",
-      )
+    } catch {
+      toast.error("Error al actualizar acceso directo")
     } finally {
       setShortcutLoading(false)
     }
@@ -181,11 +177,9 @@ export function NotaDetail({ initialNota, userEmail, notaId }: Props) {
     try {
       await deleteNota(notaId)
       router.push("/notas")
-    } catch (err) {
+    } catch {
       detachedRef.current = false
-      toast.error(
-        err instanceof Error ? err.message : "Error al eliminar la nota",
-      )
+      toast.error("Error al eliminar la nota")
       setDeleting(false)
     }
   }
@@ -199,11 +193,9 @@ export function NotaDetail({ initialNota, userEmail, notaId }: Props) {
     try {
       await leaveNota(notaId)
       router.push("/notas")
-    } catch (err) {
+    } catch {
       detachedRef.current = false
-      toast.error(
-        err instanceof Error ? err.message : "Error al salir de la nota",
-      )
+      toast.error("Error al salir de la nota")
       setDeleting(false)
     }
   }

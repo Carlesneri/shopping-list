@@ -16,7 +16,7 @@ import type { AllowedUser, StorageEntry } from "@/lib/types"
 
 interface Props {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ drive_error?: string }>
+  searchParams: Promise<{ drive_error?: string; p?: string | string[] }>
 }
 
 /** Loads the doc but strips the encrypted secret — it never reaches the client. */
@@ -80,16 +80,22 @@ async function MediaEntries({
   userEmail,
   allowedUsers,
   provider,
+  initialPath,
 }: {
   id: string
   userEmail: string
   allowedUsers: AllowedUser[]
   provider: MediaStorage["provider"]
+  initialPath?: string
 }) {
+  // Normalize "?p=" into the internal folder prefix ("videos/") so the server
+  // fetches the entries of the folder in the URL, not the root — that way the
+  // page renders straight into the folder with no root flash.
+  const serverPath = initialPath ? `${initialPath.replace(/\/+$/, "")}/` : ""
   let entries: StorageEntry[] = []
   let loadError: string | null = null
   try {
-    entries = await listMediaStorageEntries(id)
+    entries = await listMediaStorageEntries(id, serverPath)
   } catch (error) {
     console.error(`[media:page] failed to load entries for ${id}`, error)
     loadError =
@@ -110,6 +116,7 @@ async function MediaEntries({
       isOwner={isOwner}
       entries={entries}
       initialError={loadError}
+      initialPath={serverPath}
     />
   )
 }
@@ -119,7 +126,9 @@ export default async function MediaStoragePage({
   searchParams,
 }: Props) {
   const { id } = await params
-  const { drive_error: driveError } = await searchParams
+  const { drive_error: driveError, p: rawPath } = await searchParams
+  // Repeated query keys (?p=a&p=b) arrive as an array; use the first value.
+  const p = Array.isArray(rawPath) ? rawPath[0] : rawPath
   const session = await auth()
   if (!session?.user?.email) redirect("/")
 
@@ -143,6 +152,7 @@ export default async function MediaStoragePage({
               userEmail={session.user.email}
               allowedUsers={media.allowedUsers}
               provider={media.provider}
+              initialPath={p}
             />
           </div>
         </Suspense>

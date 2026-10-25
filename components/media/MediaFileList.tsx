@@ -39,6 +39,7 @@ export function MediaFileList({
   provider,
   initialError,
   currentPath,
+  serverPath = "",
   onPathChange,
   uploadingEntries = [],
   onCommitReady,
@@ -51,6 +52,8 @@ export function MediaFileList({
   initialError?: string | null
   /** Folder currently being browsed (e.g. "videos/"); "" for the root. */
   currentPath: string
+  /** Folder the server snapshot in `entries` was fetched for ("" for root). */
+  serverPath?: string
   onPathChange: (path: string) => void
   /** Placeholder rows for files currently being uploaded. */
   uploadingEntries?: StorageEntry[]
@@ -68,6 +71,12 @@ export function MediaFileList({
   const [entries, setEntries] = useState(initialEntries)
   const [loadingEntries, setLoadingEntries] = useState(false)
   const [search, setSearch] = useState("")
+  // Last known root listing keys, used by the "new files" poller to detect
+  // additions. Null until a root listing is available (e.g. the page was
+  // opened directly into a folder via "?p=").
+  const knownRootKeysRef = useRef<Set<string> | null>(
+    serverPath === "" ? new Set(initialEntries.map((e) => e.key)) : null,
+  )
 
   const breadcrumbs = parseBreadcrumbs(currentPath)
   // Drive's move/copy action is not supported, so the move option is hidden.
@@ -80,38 +89,43 @@ export function MediaFileList({
   }, [initialError])
 
   // One source of truth per situation:
-  // - Root: mirror the server snapshot. Server actions revalidate the page,
-  //   so their responses deliver fresh data — swap it in, no request needed.
-  //   Deletes and uploads also update the list locally, so neither refetches
-  //   the whole page.
-  // - Folder: always fetch when the folder changes, and show the loader until
-  //   it arrives. The reset is unconditional so nothing can get stuck.
+  // - Server snapshot: the page payload carries the entries for `serverPath`
+  //   (root on a normal load, or the "?p=" folder). While browsing that same
+  //   folder, mirror the snapshot — server actions revalidate the page, so
+  //   their responses deliver fresh data. Deletes and uploads also update the
+  //   list locally, so neither refetches the whole page.
+  // - Any other folder: fetch on navigation and show the loader until it
+  //   arrives. The reset is unconditional so nothing can get stuck.
   useEffect(() => {
-    if (!currentPath) {
+    if (currentPath === serverPath) {
       setLoadingEntries(false)
       setEntries(initialEntries)
+      if (currentPath === "") {
+        knownRootKeysRef.current = new Set(initialEntries.map((e) => e.key))
+      }
+      return
     }
-  }, [currentPath, initialEntries])
-
-  useEffect(() => {
-    if (!currentPath) return
     let cancelled = false
     setLoadingEntries(true)
     listMediaStorageEntries(mediaId, currentPath)
       .then((freshEntries) => {
-        if (!cancelled) setEntries(freshEntries)
+        if (cancelled) return
+        setEntries(freshEntries)
+        if (currentPath === "") {
+          knownRootKeysRef.current = new Set(freshEntries.map((e) => e.key))
+        }
       })
       .catch((error) => {
         console.error("[media:navigate] failed to load entries", error)
         if (!cancelled) toast.error("Error al cargar el contenido")
       })
       .finally(() => {
-        setLoadingEntries(false)
+        if (!cancelled) setLoadingEntries(false)
       })
     return () => {
       cancelled = true
     }
-  }, [mediaId, currentPath])
+  }, [mediaId, currentPath, serverPath, initialEntries])
 
   // Keys of files committed locally after an upload, so the "new files"
   // poller does not mistake them for uploads made by someone else.
@@ -154,10 +168,14 @@ export function MediaFileList({
 
     try {
       const freshEntries = await listMediaStorageEntries(mediaId)
-      const currentKeys = new Set([
-        ...initialEntries.map((e) => e.key),
-        ...uploadedKeysRef.current,
-      ])
+      const knownKeys = knownRootKeysRef.current
+      // No root baseline yet (the page opened inside a folder via "?p="):
+      // adopt this listing as the baseline, there is nothing to diff against.
+      if (!knownKeys) {
+        knownRootKeysRef.current = new Set(freshEntries.map((e) => e.key))
+        return
+      }
+      const currentKeys = new Set([...knownKeys, ...uploadedKeysRef.current])
       const newItems = freshEntries.filter((e) => !currentKeys.has(e.key))
       if (newItems.length > 0 && !hasNotified.current) {
         hasNotified.current = true
@@ -173,7 +191,7 @@ export function MediaFileList({
     } catch (error) {
       console.error("[media:sync] failed to check for new items", error)
     }
-  }, [mediaId, initialEntries, router])
+  }, [mediaId, router])
 
   useEffect(() => {
     checkForNewItems()

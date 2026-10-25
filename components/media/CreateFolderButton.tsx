@@ -15,6 +15,26 @@ import { fileCardButtonClass } from "./UploadButton"
 
 type Color = "green" | "blue" | "purple" | "orange" | "pink"
 
+/**
+ * Friendly copy for the errors `createMediaFolder` can throw. Anything not in
+ * this map (AWS SDK errors, server config failures, framework errors, …)
+ * falls back to the generic message instead of leaking internals.
+ */
+const FOLDER_ERRORS: Record<string, string> = {
+  "No autenticado": "Tu sesión ha caducado. Vuelve a iniciar sesión.",
+  "Documento no encontrado": "Este storage ya no existe.",
+  "Sin permisos para crear carpetas":
+    "No tienes permisos para crear carpetas en este storage.",
+  "Sin permisos para acceder a este documento":
+    "No tienes acceso a este storage.",
+  "Esta operación no está disponible para Google Drive todavía":
+    "Todavía no se pueden crear carpetas en Google Drive.",
+  "Falta el endpoint de Cloudflare R2":
+    "El storage no está bien configurado. Revisa sus ajustes.",
+  "Ruta de carpeta inválida": "La carpeta actual no es válida.",
+  "El nombre no puede contener barras": "El nombre no puede contener barras",
+}
+
 const iconClasses = {
   green: "text-primary",
   blue: "text-blue",
@@ -81,7 +101,9 @@ export function NewFolderForm({
       startTransition(() => router.refresh())
     } catch (error) {
       console.error("[media:mkdir] failed", error)
-      toast.error("No se pudo crear la carpeta")
+      const message =
+        error instanceof Error ? FOLDER_ERRORS[error.message] : undefined
+      toast.error(message ?? "No se pudo crear la carpeta")
       setCreating(false)
     }
   }

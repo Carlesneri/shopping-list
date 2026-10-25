@@ -1,6 +1,15 @@
 import { render, screen } from "@testing-library/react"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { MediaDetail } from "./MediaDetail"
+
+// Server actions must not run in the test environment: they require a real
+// Next request scope (auth, Firebase). The component only needs the shortcut
+// check to resolve so its effect completes.
+vi.mock("@/lib/actions/shortcuts", () => ({
+  isShortcut: vi.fn().mockResolvedValue(false),
+  addShortcut: vi.fn().mockResolvedValue(undefined),
+  removeShortcut: vi.fn().mockResolvedValue(undefined),
+}))
 
 describe("MediaDetail", () => {
   it("shows only the title and actions for a storage", () => {

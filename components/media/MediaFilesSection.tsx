@@ -6,6 +6,12 @@ import { MediaFileList } from "./MediaFileList"
 import { CreateFolderButton, NewFolderForm } from "./CreateFolderButton"
 import { UploadButton } from "./UploadButton"
 
+/** Normalizes the "?p=" query param into the internal folder path ("videos/"). */
+function folderPathFromUrl(value: string | null) {
+  if (!value) return ""
+  return `${value.replace(/\/+$/, "")}/`
+}
+
 interface Props {
   mediaId: string
   provider: StorageProvider
@@ -13,6 +19,8 @@ interface Props {
   isOwner: boolean
   entries: StorageEntry[]
   initialError?: string | null
+  /** Folder to open from the URL's "?p=" param, resolved server-side. */
+  initialPath?: string
 }
 
 /**
@@ -27,14 +35,32 @@ export function MediaFilesSection({
   isOwner,
   entries: initialEntries,
   initialError,
+  initialPath,
 }: Props) {
   const canUpload = isAdmin
   const canCreateFolder = isAdmin && provider === "cloudflare-r2"
-  const [currentPath, setCurrentPath] = useState("")
+  const [currentPath, setCurrentPath] = useState(() =>
+    folderPathFromUrl(initialPath ?? null),
+  )
   const [folderFormOpen, setFolderFormOpen] = useState(false)
   const [uploadingEntries, setUploadingEntries] = useState<StorageEntry[]>([])
   // Set by MediaFileList: inserts a committed upload into the list locally.
   const commitRef = useRef<(entry: StorageEntry) => void>(() => {})
+
+  /** Keeps the URL in sync with the folder being browsed (?p=video/). */
+  function handlePathChange(path: string) {
+    setCurrentPath(path)
+    const url = new URL(window.location.href)
+    const trimmed = path.replace(/\/+$/, "")
+    if (trimmed) {
+      url.searchParams.set("p", trimmed)
+    } else {
+      url.searchParams.delete("p")
+    }
+    // replaceState keeps the URL shareable without triggering a server
+    // refetch or adding history entries for every folder visited.
+    window.history.replaceState(null, "", url)
+  }
 
   function handleUploadStart(entry: StorageEntry) {
     setUploadingEntries((prev) => [...prev, entry])
@@ -84,7 +110,8 @@ export function MediaFilesSection({
         provider={provider}
         initialError={initialError}
         currentPath={currentPath}
-        onPathChange={setCurrentPath}
+        serverPath={initialPath ?? ""}
+        onPathChange={handlePathChange}
         uploadingEntries={uploadingEntries}
         onCommitReady={(commit) => {
           commitRef.current = commit
