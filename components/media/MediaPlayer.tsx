@@ -69,6 +69,8 @@ interface MoviElementWithPlayer extends HTMLElement {
   player?: MoviPlayerInternals | null
 }
 
+type TrackSelection = { lang: string } | { trackId: number }
+
 function readSavedPosition(key?: string): number {
   if (!key || typeof window === "undefined") return 0
   try {
@@ -94,24 +96,36 @@ function readSavedTracks(key?: string): SavedTracks | null {
   }
 }
 
-function matchesLangPreference(
+function matchesPreference(
   preference: TrackPreference,
-  track: MoviLangTrack,
+  language: string | undefined,
+  label: string | undefined,
 ): boolean {
   return (
-    (!!preference.language && preference.language === track.lang) ||
-    (!!preference.label && preference.label === track.label)
+    (!!preference.language && preference.language === language) ||
+    (!!preference.label && preference.label === label)
   )
 }
 
-function matchesTrackPreference(
+function findTrackSelection(
   preference: TrackPreference,
-  track: MoviMediaTrack,
-): boolean {
-  return (
-    (!!preference.language && preference.language === track.language) ||
-    (!!preference.label && preference.label === track.label)
+  langTracks: MoviLangTrack[],
+  mediaTracks: MoviMediaTrack[],
+): TrackSelection | null {
+  const byLang = langTracks.find((track) =>
+    matchesPreference(preference, track.lang, track.label),
   )
+  if (byLang) return { lang: byLang.lang }
+
+  const byTrack =
+    mediaTracks.find(
+      (track) =>
+        preference.trackId !== undefined && track.id === preference.trackId,
+    ) ??
+    mediaTracks.find((track) =>
+      matchesPreference(preference, track.language, track.label),
+    )
+  return byTrack ? { trackId: byTrack.id } : null
 }
 
 function corsRuleSnippet(): string {
@@ -126,11 +140,6 @@ function corsRuleSnippet(): string {
     "maxAgeSeconds": 3600
   }
 ]`
-}
-
-export interface SubtitleOption {
-  label: string
-  src: string
 }
 
 /** Images of the current folder, so the image view can browse prev/next. */
@@ -303,14 +312,20 @@ export function MediaPlayer({
     return () => window.removeEventListener("keydown", onKey)
   }, [onClose, canNavigate, navigate])
 
-  // Track the movi-player position: update the ref on every timeupdate,
-  // persist on pause (and throttled while playing), clear on end.
+  // Track the media position: update the ref on every timeupdate, persist on
+  // pause (and throttled while playing), clear on end.
   useEffect(() => {
-    if (kind !== "video" || !storageKey) return
-    const player = playerRef.current
-    if (!player) return
-    const currentTime = () =>
-      (player as unknown as { currentTime?: number }).currentTime ?? 0
+    if (!storageKey || kind === "image") return
+    const media = kind === "video" ? playerRef.current : audioRef.current
+    if (!media) return
+
+    const currentTime = () => {
+      const seconds = (media as unknown as { currentTime?: unknown })
+        .currentTime
+      return typeof seconds === "number" && Number.isFinite(seconds)
+        ? seconds
+        : 0
+    }
 
     function onTimeUpdate() {
       lastTimeRef.current = currentTime()
@@ -332,27 +347,29 @@ export function MediaPlayer({
       }
     }
 
-    player.addEventListener("timeupdate", onTimeUpdate)
-    player.addEventListener("pause", onPause)
-    player.addEventListener("ended", onEnded)
+    media.addEventListener("timeupdate", onTimeUpdate)
+    media.addEventListener("pause", onPause)
+    media.addEventListener("ended", onEnded)
+
     // movi-player bug: after seeking, audio stays silent (stale/suspended
     // AudioContext) until the user mutes and unmutes. Toggling the element's
     // `muted` property drives the same recovery path automatically. Skipped
     // when the user has the player muted, since nothing is audible then.
     const onSeeked = () => {
-      const el = player as unknown as { muted?: boolean }
+      const el = media as unknown as { muted?: boolean }
       if (el.muted) return
       el.muted = true
       queueMicrotask(() => {
         el.muted = false
       })
     }
-    player.addEventListener("seeked", onSeeked)
+    if (kind === "video") media.addEventListener("seeked", onSeeked)
+
     return () => {
-      player.removeEventListener("timeupdate", onTimeUpdate)
-      player.removeEventListener("pause", onPause)
-      player.removeEventListener("ended", onEnded)
-      player.removeEventListener("seeked", onSeeked)
+      media.removeEventListener("timeupdate", onTimeUpdate)
+      media.removeEventListener("pause", onPause)
+      media.removeEventListener("ended", onEnded)
+      if (kind === "video") media.removeEventListener("seeked", onSeeked)
     }
   }, [kind, storageKey, savePosition])
 
@@ -368,7 +385,7 @@ export function MediaPlayer({
     let restored = !savedTracks
     let applying = false
 
-    function restoreTracks() {
+    async function restoreTracks() {
       if (restored) return
       const player = playerElement.player
       if (!player) return
@@ -393,62 +410,51 @@ export function MediaPlayer({
 
       restored = true
       applying = true
-      const pending: Promise<unknown>[] = []
-      const run = (result: boolean | Promise<boolean> | undefined) => {
-        if (result instanceof Promise) pending.push(result)
-      }
-
-      const audioPreference = preference.audio
-      if (audioPreference) {
-        const byLang = audioLangs.find((track) =>
-          matchesLangPreference(audioPreference, track),
-        )
-        if (byLang) {
-          run(player.selectAudioLang?.(byLang.lang))
-        } else {
-          const byTrack =
-            audioTracks.find(
-              (track) =>
-                audioPreference.trackId !== undefined &&
-                track.id === audioPreference.trackId,
-            ) ??
-            audioTracks.find((track) =>
-              matchesTrackPreference(audioPreference, track),
-            )
-          if (byTrack) run(player.selectAudioTrack?.(byTrack.id))
+      try {
+        const selections: (boolean | Promise<boolean> | undefined)[] = []
+        const select = (
+          selection: TrackSelection | null,
+          selectLang:
+            | ((lang: string) => boolean | Promise<boolean>)
+            | undefined,
+          selectTrack: ((id: number) => boolean | Promise<boolean>) | undefined,
+        ) => {
+          if (!selection) return
+          selections.push(
+            "lang" in selection
+              ? selectLang?.(selection.lang)
+              : selectTrack?.(selection.trackId),
+          )
         }
-      }
 
-      const subtitlePreference = preference.subtitles
-      if (subtitlePreference === "off") {
-        run(player.selectSubtitleTrack?.(null))
-        run(player.selectSubtitleLang?.(null))
-      } else if (subtitlePreference) {
-        const byLang = subtitleLangs.find((track) =>
-          matchesLangPreference(subtitlePreference, track),
-        )
-        if (byLang) {
-          run(player.selectSubtitleLang?.(byLang.lang))
-        } else {
-          const byTrack =
-            subtitleTracks.find(
-              (track) =>
-                subtitlePreference.trackId !== undefined &&
-                track.id === subtitlePreference.trackId,
-            ) ??
-            subtitleTracks.find((track) =>
-              matchesTrackPreference(subtitlePreference, track),
-            )
-          if (byTrack) run(player.selectSubtitleTrack?.(byTrack.id))
+        const audioPreference = preference.audio
+        if (audioPreference) {
+          select(
+            findTrackSelection(audioPreference, audioLangs, audioTracks),
+            (lang) => player.selectAudioLang?.(lang) ?? false,
+            (id) => player.selectAudioTrack?.(id) ?? false,
+          )
         }
-      }
 
-      if (pending.length === 0) {
+        const subtitlePreference = preference.subtitles
+        if (subtitlePreference === "off") {
+          selections.push(player.selectSubtitleTrack?.(null))
+          selections.push(player.selectSubtitleLang?.(null))
+        } else if (subtitlePreference) {
+          select(
+            findTrackSelection(
+              subtitlePreference,
+              subtitleLangs,
+              subtitleTracks,
+            ),
+            (lang) => player.selectSubtitleLang?.(lang) ?? false,
+            (id) => player.selectSubtitleTrack?.(id) ?? false,
+          )
+        }
+
+        await Promise.allSettled(selections)
+      } finally {
         applying = false
-      } else {
-        void Promise.allSettled(pending).finally(() => {
-          applying = false
-        })
       }
     }
 
@@ -515,13 +521,15 @@ export function MediaPlayer({
       })
     }
 
-    const onTracksChange = () => restoreTracks()
+    const onTracksChange = () => {
+      void restoreTracks()
+    }
 
     element.addEventListener("trackschange", onTracksChange)
     element.addEventListener("audiotrackchange", saveAudioTrack)
     element.addEventListener("subtitletrackchange", saveSubtitleTrack)
     // The tracks may already be published by the time this effect attaches.
-    restoreTracks()
+    void restoreTracks()
 
     return () => {
       element.removeEventListener("trackschange", onTracksChange)
@@ -529,42 +537,6 @@ export function MediaPlayer({
       element.removeEventListener("subtitletrackchange", saveSubtitleTrack)
     }
   }, [kind, storageKey, savedTracks])
-
-  // Same tracking for the plain <audio> element.
-  useEffect(() => {
-    if (kind !== "audio" || !storageKey) return
-    const audio = audioRef.current
-    if (!audio) return
-
-    const onTimeUpdate = () => {
-      lastTimeRef.current = audio.currentTime
-      if (Date.now() - lastSaveAtRef.current > 5000) {
-        lastSaveAtRef.current = Date.now()
-        savePosition()
-      }
-    }
-    const onPause = () => {
-      lastTimeRef.current = audio.currentTime
-      savePosition()
-    }
-    const onEnded = () => {
-      endedRef.current = true
-      try {
-        window.localStorage.removeItem(POSITION_PREFIX + storageKey)
-      } catch {
-        // Ignore storage failures.
-      }
-    }
-
-    audio.addEventListener("timeupdate", onTimeUpdate)
-    audio.addEventListener("pause", onPause)
-    audio.addEventListener("ended", onEnded)
-    return () => {
-      audio.removeEventListener("timeupdate", onTimeUpdate)
-      audio.removeEventListener("pause", onPause)
-      audio.removeEventListener("ended", onEnded)
-    }
-  }, [kind, storageKey, savePosition])
 
   useEffect(() => {
     if (kind !== "video") return
